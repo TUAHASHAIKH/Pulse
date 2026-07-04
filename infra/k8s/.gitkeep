@@ -1,0 +1,4 @@
+# Kubernetes manifests — Phase 7
+# This directory will contain:
+#   - orchestrator-deployment.yaml
+#   - demo-crashloop-pod.yaml (for demoing self-healing)

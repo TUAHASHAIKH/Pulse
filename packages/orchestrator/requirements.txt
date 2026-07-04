@@ -1,0 +1,22 @@
+# ─── Core ───
+fastapi==0.115.12
+uvicorn[standard]==0.34.3
+pydantic==2.11.3
+pydantic-settings==2.9.1
+
+# ─── Socket.io (real-time dashboard) ───
+python-socketio==5.12.1
+
+# ─── Environment ───
+python-dotenv==1.1.0
+
+# ─── HTTP client (GitHub API) ───
+httpx==0.28.1
+
+# ─── Agent orchestration (used from Phase 2) ───
+langgraph==0.4.1
+langchain-core==0.3.56
+
+# ─── Testing ───
+pytest==8.3.5
+pytest-asyncio==1.0.0

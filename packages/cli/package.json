@@ -1,0 +1,13 @@
+{
+  "name": "@pulse/cli",
+  "version": "0.1.0",
+  "description": "Pulse CLI — start the orchestrator and trigger reviews",
+  "private": true,
+  "bin": {
+    "pulse": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/index.ts"
+  }
+}

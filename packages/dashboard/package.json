@@ -1,0 +1,6 @@
+{
+  "name": "@pulse/dashboard",
+  "version": "0.1.0",
+  "description": "Pulse Dashboard — real-time agent activity and findings viewer",
+  "private": true
+}

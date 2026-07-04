@@ -1,0 +1,28 @@
+{
+  "name": "pulse",
+  "version": "0.1.0",
+  "description": "Autonomous multi-agent DevOps system — AI-powered code review, automated repair, and production self-healing",
+  "private": true,
+  "workspaces": [
+    "packages/cli",
+    "packages/dashboard"
+  ],
+  "scripts": {
+    "dev:orchestrator": "cd packages/orchestrator && uvicorn app.main:app --reload --port 8000",
+    "dev:dashboard": "cd packages/dashboard && npm run dev",
+    "test:orchestrator": "cd packages/orchestrator && python -m pytest tests/ -v"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/pulse.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "devops",
+    "ai-agents",
+    "code-review",
+    "langgraph",
+    "self-healing",
+    "kubernetes"
+  ]
+}
