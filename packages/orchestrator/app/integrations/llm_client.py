@@ -58,6 +58,7 @@ class LLMClient:
     def __init__(self):
         self._anthropic_client = None
         self._openai_client = None
+        self._groq_client = None
 
     def _get_anthropic_client(self):
         """Lazy-init Anthropic client."""
@@ -86,6 +87,21 @@ class LLMClient:
                     "OpenAI SDK not installed. Run: pip install openai"
                 )
         return self._openai_client
+
+    def _get_groq_client(self):
+        """Lazy-init Groq client (uses OpenAI SDK under the hood)."""
+        if self._groq_client is None:
+            try:
+                import openai
+                self._groq_client = openai.AsyncOpenAI(
+                    api_key=settings.llm_api_key,
+                    base_url="https://api.groq.com/openai/v1"
+                )
+            except ImportError:
+                raise RuntimeError(
+                    "OpenAI SDK not installed. Run: pip install openai"
+                )
+        return self._groq_client
 
     async def call(
         self,
@@ -126,10 +142,14 @@ class LLMClient:
                     return await self._call_openai(
                         system_prompt, user_message, model, temperature, max_tokens
                     )
+                elif provider == "groq":
+                    return await self._call_groq(
+                        system_prompt, user_message, model, temperature, max_tokens
+                    )
                 else:
                     raise ValueError(
                         f"Unsupported LLM provider: '{provider}'. "
-                        f"Use 'anthropic' or 'openai'."
+                        f"Use 'anthropic', 'openai', or 'groq'."
                     )
             except Exception as e:
                 error_str = str(e).lower()
@@ -149,6 +169,8 @@ class LLMClient:
                 else:
                     logger.error(f"LLM call failed after {attempt} attempt(s): {e}")
                     raise
+        
+        raise RuntimeError(f"LLM call failed to execute. Check MAX_RETRIES.")
 
     async def _call_anthropic(
         self,
@@ -184,7 +206,7 @@ class LLMClient:
         )
 
         duration = time.time() - start
-        content = response.content[0].text
+        content = "".join(getattr(block, "text", "") for block in response.content if getattr(block, "type", "") == "text")
 
         # Parse JSON from response
         parsed = self._try_parse_json(content)
@@ -247,6 +269,56 @@ class LLMClient:
 
         logger.info(
             f"OpenAI response: {token_usage.input_tokens} in / "
+            f"{token_usage.output_tokens} out / {duration:.1f}s"
+        )
+
+        return LLMResponse(
+            content=content,
+            parsed_json=parsed,
+            token_usage=token_usage,
+            model=model,
+            duration_seconds=duration,
+        )
+
+    async def _call_groq(
+        self,
+        system_prompt: str,
+        user_message: str,
+        model: Optional[str],
+        temperature: float,
+        max_tokens: int,
+    ) -> LLMResponse:
+        """Call Groq's API (using OpenAI's SDK interface)."""
+        client = self._get_groq_client()
+        model = model or "llama-3.3-70b-versatile"
+
+        start = time.time()
+        logger.info(f"Calling Groq ({model})...")
+
+        response = await client.chat.completions.create(
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
+        )
+
+        duration = time.time() - start
+        content = response.choices[0].message.content or ""
+
+        parsed = self._try_parse_json(content)
+
+        token_usage = TokenUsage(
+            input_tokens=response.usage.prompt_tokens if response.usage else 0,
+            output_tokens=response.usage.completion_tokens if response.usage else 0,
+            model=model,
+        )
+
+        logger.info(
+            f"Groq response: {token_usage.input_tokens} in / "
             f"{token_usage.output_tokens} out / {duration:.1f}s"
         )
 

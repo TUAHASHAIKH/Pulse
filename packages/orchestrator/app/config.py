@@ -130,11 +130,11 @@ class Settings(BaseSettings):
     # ─── LLM ───
     llm_api_key: str = Field(
         default="",
-        description="API key for the LLM provider (Anthropic or OpenAI)"
+        description="API key for the LLM provider (Anthropic, OpenAI, or Groq)"
     )
     llm_provider: str = Field(
         default="anthropic",
-        description="LLM provider to use: 'anthropic' or 'openai'"
+        description="LLM provider to use: 'anthropic', 'openai', or 'groq'"
     )
 
     # ─── Server ───

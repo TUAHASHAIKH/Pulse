@@ -113,7 +113,7 @@ Copy `.env.example` to `.env` and fill in:
 | 2. Security Agent (E2E) | ⬜ | First agent: diff in → findings out → PR comment |
 | 3. Multi-Agent Wiring | ⬜ | LangGraph parallel fan-out to all reviewers |
 | 4. Repair Agent + Sandbox | ⬜ | Docker-based automated fix attempts |
-| 5. Dashboard | ⬜ | Next.js real-time UI |
+| 5. Dashboard | ✅ | Next.js real-time UI |
 | 6. CLI Packaging | ⬜ | `npx pulse start` wraps everything |
 | 7. Sentinel + Self-Healing | ⬜ | Kubernetes monitoring (stretch goal) |
 
