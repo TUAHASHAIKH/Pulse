@@ -10,14 +10,18 @@ Flow:
   4. Read X-GitHub-Event header to determine event type
   5. For pull_request events, filter to only "opened" and "synchronize"
   6. Log the payload with PR details
-  7. Broadcast a Socket.io event so the dashboard updates in real time
-  8. Return 200 quickly — actual agent processing will be async (Phase 2+)
+  7. Kick off the review pipeline as a background task
+  8. Return 200 immediately (GitHub expects fast responses)
 """
+
+import asyncio
 
 from fastapi import APIRouter, Request, HTTPException
 from app.config import settings
 from app.webhooks.signature import verify_github_signature
-from app.models.webhook_events import PullRequestEvent, WebhookReceivedEvent
+from app.models.webhook_events import WebhookReceivedEvent
+from app.models.agent_models import ReviewRequest, ReviewSource
+from app.agents.review_runner import run_review
 from app.ws.socket_server import emit_event
 from app.utils.logger import setup_logger
 
@@ -45,12 +49,10 @@ async def handle_github_webhook(request: Request):
     signature = request.headers.get("X-Hub-Signature-256", "")
 
     if settings.github_webhook_secret:
-        # If a secret is configured, enforce signature verification
         if not verify_github_signature(raw_body, signature, settings.github_webhook_secret):
             logger.warning("⚠ Webhook signature verification FAILED — rejecting payload")
             raise HTTPException(status_code=401, detail="Invalid webhook signature")
     else:
-        # No secret configured — warn but allow (useful during initial dev)
         logger.warning("⚠ No GITHUB_WEBHOOK_SECRET configured — skipping signature verification")
 
     # ── Step 3: Determine event type ──
@@ -71,7 +73,6 @@ async def handle_github_webhook(request: Request):
         return await _handle_pull_request(payload)
 
     elif event_type == "ping":
-        # GitHub sends a "ping" event when you first register a webhook
         logger.info("🏓 Ping event received — webhook is connected!")
         return {"status": "pong", "message": "Webhook connected successfully"}
 
@@ -90,7 +91,7 @@ async def _handle_pull_request(payload: dict):
         logger.info(f"ℹ Ignoring pull_request action: {action}")
         return {"status": "ignored", "action": action}
 
-    # Parse into our Pydantic model for type safety
+    # Extract PR details
     try:
         pr_data = payload.get("pull_request", {})
         repo_data = payload.get("repository", {})
@@ -102,7 +103,6 @@ async def _handle_pull_request(payload: dict):
         base_branch = pr_data.get("base", {}).get("ref", "")
         head_branch = pr_data.get("head", {}).get("ref", "")
         repo_name = repo_data.get("full_name", "unknown")
-        diff_url = pr_data.get("diff_url", "")
 
         logger.info(
             f"🔍 PR #{pr_number} '{pr_title}' by {author} "
@@ -113,7 +113,7 @@ async def _handle_pull_request(payload: dict):
         logger.error(f"Failed to parse pull_request payload: {e}")
         raise HTTPException(status_code=400, detail="Malformed pull_request payload")
 
-    # ── Step 6: Broadcast to dashboard via Socket.io ──
+    # ── Broadcast to dashboard via Socket.io ──
     event = WebhookReceivedEvent(
         event_type="pull_request",
         action=action,
@@ -124,16 +124,53 @@ async def _handle_pull_request(payload: dict):
     )
     await emit_event("webhook_received", event.model_dump())
 
-    logger.info(f"📡 Broadcasted webhook_received event to dashboard")
+    # ── Kick off the review as a background task ──
+    review_request = ReviewRequest(
+        diff="",  # Will be fetched from GitHub by the runner
+        repo=repo_name,
+        pr_number=pr_number,
+        head_sha=head_sha,
+        branch=head_branch,
+        author=author,
+        source=ReviewSource.GITHUB_PR,
+    )
 
-    # ── Step 7: Return 200 quickly ──
-    # In Phase 2+, this is where we'll trigger the Architect Agent
-    # For now, just acknowledge receipt
+    # Run review in the background — don't block the webhook response
+    asyncio.create_task(
+        _run_review_safe(review_request, pr_number, repo_name)
+    )
+
+    logger.info(f"📡 Review triggered for PR #{pr_number} (running in background)")
+
+    # ── Return 200 immediately ──
     return {
-        "status": "received",
+        "status": "review_started",
         "event": "pull_request",
         "action": action,
         "pr": pr_number,
         "repo": repo_name,
-        "message": f"PR #{pr_number} queued for review (agents coming in Phase 2)",
+        "message": f"Review started for PR #{pr_number}",
     }
+
+
+async def _run_review_safe(
+    review_request: ReviewRequest,
+    pr_number: int,
+    repo_name: str,
+):
+    """
+    Wrapper that catches exceptions from the background review task.
+    asyncio.create_task doesn't propagate exceptions to the caller,
+    so we catch them here to avoid silent failures.
+    """
+    try:
+        result = await run_review(review_request)
+        logger.info(
+            f"Background review for {repo_name}#{pr_number} completed: "
+            f"{result.message}"
+        )
+    except Exception as e:
+        logger.error(
+            f"Background review for {repo_name}#{pr_number} failed: {e}",
+            exc_info=True,
+        )

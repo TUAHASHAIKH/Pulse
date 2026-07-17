@@ -1,1 +1,1 @@
-# External integrations (GitHub, LLM, Unleash) — Phase 2+
+# Pulse Orchestrator — Integrations (GitHub, LLM clients)

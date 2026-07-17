@@ -17,6 +17,10 @@ httpx==0.28.1
 langgraph==0.4.1
 langchain-core==0.3.56
 
+# ─── LLM Providers (Phase 2) ───
+anthropic>=0.52.0
+openai>=1.82.0
+
 # ─── Testing ───
 pytest==8.3.5
 pytest-asyncio==1.0.0
