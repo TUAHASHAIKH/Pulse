@@ -1,0 +1,77 @@
+/* ═══ Shared Component Styles ═══ */
+
+/* ─── Severity Badge ─── */
+.severityBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.severityCritical {
+  background: var(--nx-red-dim);
+  color: var(--nx-red);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.severityWarning {
+  background: var(--nx-orange-dim);
+  color: var(--nx-orange);
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+.severityInfo {
+  background: var(--nx-cyan-dim);
+  color: var(--nx-cyan);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+}
+
+/* ─── Glow Dot ─── */
+.glowDot {
+  display: inline-block;
+  border-radius: 50%;
+  background: var(--dot-color, var(--nx-emerald));
+  flex-shrink: 0;
+}
+
+.dotPulse {
+  animation: nx-dot-pulse 2s ease-in-out infinite;
+}
+
+.dotBreathe {
+  animation: nx-breathe 3s ease-in-out infinite;
+}
+
+.dotFlicker {
+  animation: nx-flicker 0.8s ease-in-out infinite;
+  background: var(--nx-red);
+  --dot-color: var(--nx-red);
+}
+
+/* ─── Animated Counter ─── */
+.animatedCounter {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+/* ─── Scanline ─── */
+.scanline {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+  opacity: 0.4;
+}

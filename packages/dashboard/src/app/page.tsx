@@ -1,27 +1,26 @@
 "use client";
 
-import { useState } from "react";
-import { Header } from "../components/Header";
-import { LiveFeed } from "../components/LiveFeed";
+import { CommandBar } from "../components/CommandBar/CommandBar";
+import { NeuralGraph } from "../components/NeuralGraph/NeuralGraph";
+import { Timeline } from "../components/Timeline/Timeline";
+import { MetricsPanel } from "../components/Metrics/MetricsPanel";
+import { FindingsPanel } from "../components/Findings/FindingsPanel";
+import { Scanline } from "../components/shared/Scanline";
 import { usePulseSocket } from "../lib/socket";
 import styles from "./page.module.css";
-import { Play } from "lucide-react";
 
 export default function Dashboard() {
-  const { isConnected, events } = usePulseSocket();
-  const [isSimulating, setIsSimulating] = useState(false);
+  const {
+    isConnected,
+    events,
+    agentStates,
+    currentReview,
+    latestFindings,
+    metrics,
+  } = usePulseSocket();
 
-  // Calculate some simple metrics from the events
-  const totalReviews = events.filter(e => e.type === "review_started").length;
-  const issuesFound = events
-    .filter(e => e.type === "review_completed")
-    .reduce((acc, curr) => acc + (curr.payload.total_findings || 0), 0);
-
-  const handleSimulateReview = async () => {
-    setIsSimulating(true);
-    try {
-      const mockDiff = `
---- src/auth.py
+  const handleSimulate = async () => {
+    const mockDiff = `--- src/auth.py
 +++ src/auth.py
 @@ -10,3 +10,4 @@
  def login(user_email, password):
@@ -30,58 +29,47 @@ export default function Dashboard() {
 +    cursor.execute(f"SELECT * FROM users WHERE email = '{user_email}' AND password = '{password}'")
 +    API_KEY = "sk-live-1234567890abcdef1234567890abcdef"
 `;
-      await fetch("http://localhost:8000/api/review", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ diff: mockDiff }),
-      });
-    } catch (err) {
-      console.error("Failed to simulate review:", err);
-    } finally {
-      setIsSimulating(false);
-    }
+    await fetch("http://localhost:8000/api/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ diff: mockDiff }),
+    });
   };
 
   return (
-    <>
-      <Header isConnected={isConnected} />
+    <div className={styles.root}>
+      <Scanline />
+      <CommandBar isConnected={isConnected} onSimulate={handleSimulate} />
 
-      <div className={styles.container}>
-        <aside className={styles.sidebar}>
-          <h2 className={styles.sidebarTitle}>System Metrics</h2>
-
-          <div className={styles.metricCard}>
-            <div className={styles.metricTitle}>Reviews Initiated</div>
-            <div className={styles.metricValue}>{totalReviews}</div>
+      <main className={styles.grid}>
+        {/* Left column: Neural graph + Metrics */}
+        <div className={styles.leftCol}>
+          <div className={styles.graphPanel}>
+            <NeuralGraph
+              agentStates={agentStates}
+              isReviewActive={currentReview?.isActive ?? false}
+            />
           </div>
-
-          <div className={styles.metricCard}>
-            <div className={styles.metricTitle}>Issues Found</div>
-            <div className={styles.metricValue} style={{ color: issuesFound > 0 ? 'var(--accent-warning)' : 'inherit' }}>
-              {issuesFound}
-            </div>
+          <div className={styles.metricsPanel}>
+            <MetricsPanel
+              totalReviews={metrics.totalReviews}
+              totalFindings={metrics.totalFindings}
+              criticalCount={metrics.criticalCount}
+              totalTokens={metrics.totalTokens}
+            />
           </div>
+        </div>
 
-          <div className={styles.actionSection}>
-            <h3 className={styles.actionTitle}>Testing</h3>
-            <button 
-              className={styles.simulateButton} 
-              onClick={handleSimulateReview}
-              disabled={!isConnected || isSimulating}
-            >
-              <Play size={16} />
-              {isSimulating ? "Sending..." : "Simulate Vulnerable PR"}
-            </button>
-            <p className={styles.actionHint}>
-              Sends a mock SQL Injection diff to the Orchestrator to see the Security Agent in action.
-            </p>
+        {/* Right column: Timeline + Findings */}
+        <div className={styles.rightCol}>
+          <div className={styles.timelinePanel}>
+            <Timeline events={events} />
           </div>
-        </aside>
-
-        <main className={styles.main}>
-          <LiveFeed events={events} />
-        </main>
-      </div>
-    </>
+          <div className={styles.findingsPanel}>
+            <FindingsPanel findings={latestFindings} />
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }

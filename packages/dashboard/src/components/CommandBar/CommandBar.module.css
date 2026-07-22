@@ -1,0 +1,148 @@
+/* ═══ CommandBar ═══ */
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  padding: 0 var(--sp-6);
+  background: var(--nx-surface);
+  border-bottom: 1px solid var(--nx-border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  gap: var(--sp-6);
+}
+
+/* ─── Logo ─── */
+.logoSection {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-shrink: 0;
+}
+
+.logoIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--nx-cyan-dim);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  border-radius: var(--radius-sm);
+  color: var(--nx-cyan);
+}
+
+.logoText {
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  color: var(--nx-text);
+  letter-spacing: 2px;
+}
+
+.versionBadge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--nx-text-ghost);
+  padding: 1px 6px;
+  border: 1px solid var(--nx-border);
+  border-radius: 2px;
+}
+
+/* ─── Status ─── */
+.statusSection {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+
+.statusIndicator {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.statusText {
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  letter-spacing: 1px;
+  color: var(--nx-text-dim);
+}
+
+.divider {
+  width: 1px;
+  height: 16px;
+  background: var(--nx-border);
+}
+
+.statusMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.metaIcon {
+  color: var(--nx-text-ghost);
+}
+
+.metaText {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--nx-text-ghost);
+}
+
+/* ─── Actions ─── */
+.actionsSection {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-shrink: 0;
+}
+
+.simulateButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--nx-cyan);
+  border-radius: var(--radius-xs);
+  color: var(--nx-cyan);
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  white-space: nowrap;
+}
+
+.simulateButton:hover:not(:disabled) {
+  background: var(--nx-cyan-dim);
+  box-shadow: var(--nx-cyan-glow);
+}
+
+.simulateButton:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.simulateButton:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 768px) {
+  .statusSection {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .bar {
+    padding: 0 var(--sp-4);
+  }
+  .versionBadge {
+    display: none;
+  }
+}

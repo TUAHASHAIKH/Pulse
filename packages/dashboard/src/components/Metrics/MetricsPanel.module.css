@@ -1,0 +1,108 @@
+/* ═══ MetricsPanel ═══ */
+
+.container {
+  background: var(--nx-surface);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.label {
+  margin-bottom: var(--sp-1);
+}
+
+.labelText {
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  letter-spacing: 1.5px;
+  color: var(--nx-text-ghost);
+  text-transform: uppercase;
+}
+
+/* ─── Gauges ─── */
+.gauges {
+  display: flex;
+  justify-content: space-around;
+  gap: var(--sp-4);
+}
+
+.gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  position: relative;
+}
+
+.gaugeSvg {
+  display: block;
+}
+
+.gaugeContent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gaugeValue {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--nx-text);
+}
+
+.gaugeLabel {
+  font-family: var(--font-pixel);
+  font-size: 6px;
+  letter-spacing: 1.5px;
+  color: var(--nx-text-ghost);
+}
+
+/* ─── Stats ─── */
+.stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  background: var(--nx-black);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--radius-sm);
+}
+
+.statLabel {
+  font-family: var(--font-pixel);
+  font-size: 6px;
+  letter-spacing: 1px;
+  color: var(--nx-text-ghost);
+  min-width: 64px;
+}
+
+.statValue {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--nx-text);
+  flex: 1;
+  text-align: right;
+}
+
+.statBar {
+  width: 3px;
+  height: 20px;
+  border-radius: 1px;
+  flex-shrink: 0;
+  transition: opacity var(--duration-normal) var(--ease-out);
+}
