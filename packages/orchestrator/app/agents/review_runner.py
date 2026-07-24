@@ -30,7 +30,7 @@ from app.models.agent_models import (
     AgentResult,
     ReviewAPIResponse,
 )
-from app.agents import security_agent
+from app.graph.builder import review_graph
 from app.agents.formatter import format_as_github_comment
 from app.integrations.github_client import github_client
 from app.ws.socket_server import emit_event
@@ -98,19 +98,16 @@ async def run_review(request: ReviewRequest) -> ReviewAPIResponse:
                     "Provide either a 'diff' string or 'repo' + 'pr_number'.",
         )
 
-    # ── Step 2: Run the Security Agent ──
-    logger.info(f"Review {review_id}: running Security Agent...")
-    security_result = await security_agent.run(
-        diff=diff,
-        changed_files=changed_files,
-    )
-
-    results = [security_result]
-
-    # In Phase 3, we'll add Performance and Code Quality agents here:
-    # performance_result = await performance_agent.run(diff, changed_files)
-    # code_quality_result = await code_quality_agent.run(diff, changed_files)
-    # results = [security_result, performance_result, code_quality_result]
+    # ── Step 2: Run all agents in parallel via LangGraph ──
+    logger.info(f"Review {review_id}: launching LangGraph multi-agent orchestration...")
+    
+    final_state = await review_graph.ainvoke({
+        "diff": diff,
+        "changed_files": changed_files,
+        "results": []
+    })
+    
+    results = final_state.get("results", [])
 
     # ── Step 3: Post PR comment (only for GitHub PRs) ──
     posted_comment = False
@@ -143,7 +140,7 @@ async def run_review(request: ReviewRequest) -> ReviewAPIResponse:
     })
 
     # ── Build summary message ──
-    finding_summary = security_result.summary or f"{total_findings} issue(s) found"
+    finding_summary = f"{total_findings} total issue(s) found across {len(results)} agents"
     if posted_comment:
         message = f"{finding_summary}. Comment posted on PR."
     else:

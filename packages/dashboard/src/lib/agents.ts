@@ -46,7 +46,7 @@ export const AGENT_REGISTRY: AgentConfig[] = [
     colorDim: "rgba(249, 115, 22, 0.15)",
     description: "Detects N+1 queries, heavy renders, memory leaks",
     phase: 3,
-    status: "planned",
+    status: "active",
   },
   {
     id: "code_quality",
@@ -57,7 +57,7 @@ export const AGENT_REGISTRY: AgentConfig[] = [
     colorDim: "rgba(168, 85, 247, 0.15)",
     description: "Style violations, dead code, cyclomatic complexity",
     phase: 3,
-    status: "planned",
+    status: "active",
   },
   {
     id: "repair",
