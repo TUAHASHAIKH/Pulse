@@ -1,42 +1,38 @@
 /* ═══ FindingsPanel ═══ */
 
 .container {
-  background: var(--nx-surface);
-  border: 1px solid var(--nx-border);
-  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  max-height: 100%;
+  height: 100%;
 }
 
 .label {
-  padding: var(--sp-4);
+  padding: 0 0 var(--sp-4) 0;
   flex-shrink: 0;
 }
 
 .labelText {
   font-family: var(--font-pixel);
-  font-size: 7px;
+  font-size: 8px;
   letter-spacing: 1.5px;
-  color: var(--nx-text-ghost);
+  color: var(--nx-text-dim);
   text-transform: uppercase;
 }
 
 .list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 0 var(--sp-4) var(--sp-4);
   display: flex;
   flex-direction: column;
-  gap: var(--sp-2);
+  gap: var(--sp-3);
 }
 
 /* ─── Finding Card ─── */
 .card {
   border: 1px solid var(--nx-border);
   border-radius: var(--radius-md);
-  background: var(--nx-black);
   overflow: hidden;
   transition: border-color var(--duration-fast) var(--ease-out);
 }
@@ -56,6 +52,11 @@
   cursor: pointer;
   color: var(--nx-text);
   text-align: left;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.cardHeader:hover {
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .cardTitle {
@@ -68,13 +69,14 @@
 .findingTitle {
   font-size: 13px;
   font-weight: 500;
+  color: var(--nx-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .chevron {
-  color: var(--nx-text-ghost);
+  color: var(--nx-text-dim);
   flex-shrink: 0;
   transition: transform var(--duration-fast) var(--ease-out);
 }
@@ -96,7 +98,7 @@
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  color: var(--nx-text-ghost);
+  color: var(--nx-text-dim);
 }
 
 .filePath {
@@ -117,7 +119,7 @@
 .explanation {
   font-size: 13px;
   color: var(--nx-text-dim);
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 /* ─── Fix Block ─── */
@@ -129,13 +131,13 @@
 
 .fixLabel {
   font-family: var(--font-pixel);
-  font-size: 6px;
+  font-size: 7px;
   letter-spacing: 1.5px;
   color: var(--nx-emerald);
 }
 
 .fixCode {
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.4);
   border: 1px solid var(--nx-border);
   border-radius: var(--radius-sm);
   padding: var(--sp-3);
@@ -157,9 +159,9 @@
 
 .confidenceLabel {
   font-family: var(--font-pixel);
-  font-size: 6px;
+  font-size: 7px;
   letter-spacing: 1px;
-  color: var(--nx-text-ghost);
+  color: var(--nx-text-dim);
   min-width: 72px;
 }
 
@@ -194,16 +196,17 @@
   justify-content: center;
   gap: var(--sp-3);
   padding: var(--sp-12) var(--sp-4);
+  height: 100%;
 }
 
 .emptyIcon {
-  color: var(--nx-text-ghost);
-  opacity: 0.4;
+  color: var(--nx-text-dim);
+  opacity: 0.6;
 }
 
 .emptyLabel {
   font-family: var(--font-pixel);
-  font-size: 7px;
+  font-size: 8px;
   letter-spacing: 1.5px;
-  color: var(--nx-text-ghost);
+  color: var(--nx-text-dim);
 }

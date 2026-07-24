@@ -1,5 +1,12 @@
 "use client";
 
+import { useState, useCallback } from "react";
+import {
+  Network,
+  BarChart3,
+  ScrollText,
+  ShieldAlert,
+} from "lucide-react";
 import { CommandBar } from "../components/CommandBar/CommandBar";
 import { NeuralGraph } from "../components/NeuralGraph/NeuralGraph";
 import { Timeline } from "../components/Timeline/Timeline";
@@ -9,7 +16,18 @@ import { Scanline } from "../components/shared/Scanline";
 import { usePulseSocket } from "../lib/socket";
 import styles from "./page.module.css";
 
+type Section = "network" | "metrics" | "timeline" | "findings";
+
+const NAV_ITEMS: { id: Section; label: string; icon: React.ReactNode }[] = [
+  { id: "network", label: "NETWORK", icon: <Network size={18} /> },
+  { id: "timeline", label: "LOG", icon: <ScrollText size={18} /> },
+  { id: "metrics", label: "METRICS", icon: <BarChart3 size={18} /> },
+  { id: "findings", label: "FINDINGS", icon: <ShieldAlert size={18} /> },
+];
+
 export default function Dashboard() {
+  const [activeSection, setActiveSection] = useState<Section>("network");
+
   const {
     isConnected,
     events,
@@ -19,7 +37,7 @@ export default function Dashboard() {
     metrics,
   } = usePulseSocket();
 
-  const handleSimulate = async () => {
+  const handleSimulate = useCallback(async () => {
     const mockDiff = `--- src/auth.py
 +++ src/auth.py
 @@ -10,3 +10,4 @@
@@ -34,6 +52,13 @@ export default function Dashboard() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ diff: mockDiff }),
     });
+  }, []);
+
+  const handleKeyNav = (e: React.KeyboardEvent, section: Section) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setActiveSection(section);
+    }
   };
 
   return (
@@ -41,35 +66,49 @@ export default function Dashboard() {
       <Scanline />
       <CommandBar isConnected={isConnected} onSimulate={handleSimulate} />
 
-      <main className={styles.grid}>
-        {/* Left column: Neural graph + Metrics */}
-        <div className={styles.leftCol}>
-          <div className={styles.graphPanel}>
+      <div className={styles.shell}>
+        {/* ─── Workspace ─── */}
+        <main className={styles.workspace}>
+          {activeSection === "network" && (
             <NeuralGraph
               agentStates={agentStates}
               isReviewActive={currentReview?.isActive ?? false}
             />
-          </div>
-          <div className={styles.metricsPanel}>
+          )}
+
+          {activeSection === "timeline" && <Timeline events={events} />}
+
+          {activeSection === "metrics" && (
             <MetricsPanel
               totalReviews={metrics.totalReviews}
               totalFindings={metrics.totalFindings}
               criticalCount={metrics.criticalCount}
               totalTokens={metrics.totalTokens}
             />
-          </div>
-        </div>
+          )}
 
-        {/* Right column: Timeline + Findings */}
-        <div className={styles.rightCol}>
-          <div className={styles.timelinePanel}>
-            <Timeline events={events} />
-          </div>
-          <div className={styles.findingsPanel}>
+          {activeSection === "findings" && (
             <FindingsPanel findings={latestFindings} />
-          </div>
-        </div>
-      </main>
+          )}
+        </main>
+
+        {/* ─── Right Sidebar Nav ─── */}
+        <nav className={styles.nav} aria-label="Dashboard sections">
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.id}
+              className={`${styles.navItem} ${activeSection === item.id ? styles.navItemActive : ""}`}
+              onClick={() => setActiveSection(item.id)}
+              onKeyDown={(e) => handleKeyNav(e, item.id)}
+              title={item.label}
+              aria-current={activeSection === item.id ? "page" : undefined}
+            >
+              <span className={styles.navIcon}>{item.icon}</span>
+              <span className={styles.navLabel}>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
     </div>
   );
 }

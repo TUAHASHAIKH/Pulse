@@ -1,13 +1,11 @@
 /* ═══ MetricsPanel ═══ */
 
 .container {
-  background: var(--nx-surface);
-  border: 1px solid var(--nx-border);
-  border-radius: var(--radius-lg);
-  padding: var(--sp-4);
   display: flex;
   flex-direction: column;
-  gap: var(--sp-5);
+  gap: var(--sp-8);
+  padding: var(--sp-4) 0;
+  height: 100%;
 }
 
 .label {
@@ -16,24 +14,24 @@
 
 .labelText {
   font-family: var(--font-pixel);
-  font-size: 7px;
+  font-size: 8px;
   letter-spacing: 1.5px;
-  color: var(--nx-text-ghost);
+  color: var(--nx-text-dim);
   text-transform: uppercase;
 }
 
 /* ─── Gauges ─── */
 .gauges {
   display: flex;
-  justify-content: space-around;
-  gap: var(--sp-4);
+  justify-content: center;
+  gap: var(--sp-12);
 }
 
 .gauge {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--sp-2);
+  gap: var(--sp-3);
   position: relative;
 }
 
@@ -54,46 +52,50 @@
 
 .gaugeValue {
   font-family: var(--font-mono);
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   color: var(--nx-text);
 }
 
 .gaugeLabel {
   font-family: var(--font-pixel);
-  font-size: 6px;
+  font-size: 7px;
   letter-spacing: 1.5px;
-  color: var(--nx-text-ghost);
+  color: var(--nx-text-dim);
 }
 
 /* ─── Stats ─── */
 .stats {
   display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
+  gap: var(--sp-4);
+  justify-content: center;
 }
 
 .stat {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  padding: var(--sp-3);
-  background: var(--nx-black);
+  padding: var(--sp-3) var(--sp-4);
   border: 1px solid var(--nx-border);
   border-radius: var(--radius-sm);
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.stat:hover {
+  border-color: var(--nx-border-active);
 }
 
 .statLabel {
   font-family: var(--font-pixel);
-  font-size: 6px;
+  font-size: 7px;
   letter-spacing: 1px;
-  color: var(--nx-text-ghost);
+  color: var(--nx-text-dim);
   min-width: 64px;
 }
 
 .statValue {
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 16px;
   color: var(--nx-text);
   flex: 1;
   text-align: right;

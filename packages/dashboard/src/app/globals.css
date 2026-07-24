@@ -36,9 +36,9 @@
   --nx-red-glow: 0 0 20px rgba(239, 68, 68, 0.3);
 
   /* Text */
-  --nx-text: #e4e4e7;
-  --nx-text-dim: #71717a;
-  --nx-text-ghost: #3f3f46;
+  --nx-text: #f0f0f3;
+  --nx-text-dim: #a1a1aa;
+  --nx-text-ghost: #6b7280;
 
   /* Spacing (8px grid) */
   --sp-1: 4px;
@@ -138,8 +138,8 @@ a:hover {
 
 /* Breathing glow for idle nodes */
 @keyframes nx-breathe {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.7; }
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
 }
 
 /* Active pulse for running agents */
@@ -278,7 +278,7 @@ body::before {
     linear-gradient(var(--nx-border) 1px, transparent 1px),
     linear-gradient(90deg, var(--nx-border) 1px, transparent 1px);
   background-size: 64px 64px;
-  opacity: 0.15;
+  opacity: 0.22;
   pointer-events: none;
   z-index: 0;
 }

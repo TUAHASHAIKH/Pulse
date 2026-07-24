@@ -10,59 +10,117 @@ interface NeuralGraphProps {
   isReviewActive: boolean;
 }
 
-interface NodePosition {
+/** A physics node with position, velocity, and target. */
+interface PhysicsNode {
   x: number;
   y: number;
-  agent: (typeof AGENT_REGISTRY)[number] | typeof ORCHESTRATOR_CONFIG;
-  isOrchestrator: boolean;
+  vx: number;
+  vy: number;
+  targetX: number;
+  targetY: number;
+  agentIndex: number; // -1 = orchestrator
 }
 
 interface Particle {
-  progress: number;  // 0 to 1 along the connection
+  progress: number;
   speed: number;
-  nodeIndex: number; // which agent connection this particle is on
+  nodeIndex: number;
 }
+
+// Spring physics constants
+const SPRING_K = 0.012; // spring stiffness
+const DAMPING = 0.88; // velocity damping
+const HUB_SPRING_K = 0.04; // hub is stiffer
+const HUB_DAMPING = 0.85;
+const DRIFT_STRENGTH = 0.15; // random perturbation
+const DRIFT_FREQ = 0.4; // how fast drift oscillates
 
 export function NeuralGraph({ agentStates, isReviewActive }: NeuralGraphProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const particlesRef = useRef<Particle[]>([]);
+  const nodesRef = useRef<PhysicsNode[]>([]);
   const frameRef = useRef<number>(0);
-  const timeRef = useRef<number>(0);
+  const initRef = useRef(false);
 
-  const getNodePositions = useCallback(
-    (width: number, height: number): NodePosition[] => {
-      const cx = width / 2;
-      const cy = height / 2;
-      const radius = Math.min(width, height) * 0.32;
+  /** Compute target positions (radial layout). */
+  const computeTargets = useCallback((width: number, height: number) => {
+    const cx = width / 2;
+    const cy = height / 2;
+    const radius = Math.min(width, height) * 0.3;
+    const agents = AGENT_REGISTRY;
+    const angleStep = (2 * Math.PI) / agents.length;
+    const startAngle = -Math.PI / 2;
 
-      const positions: NodePosition[] = [
-        {
-          x: cx,
-          y: cy,
-          agent: ORCHESTRATOR_CONFIG as any,
-          isOrchestrator: true,
-        },
-      ];
-
-      const agents = AGENT_REGISTRY;
-      const angleStep = (2 * Math.PI) / agents.length;
-      const startAngle = -Math.PI / 2; // start from top
-
-      agents.forEach((agent, i) => {
-        const angle = startAngle + i * angleStep;
-        positions.push({
-          x: cx + Math.cos(angle) * radius,
-          y: cy + Math.sin(angle) * radius,
-          agent,
-          isOrchestrator: false,
-        });
+    const targets: { x: number; y: number }[] = [{ x: cx, y: cy }]; // hub
+    agents.forEach((_, i) => {
+      const angle = startAngle + i * angleStep;
+      targets.push({
+        x: cx + Math.cos(angle) * radius,
+        y: cy + Math.sin(angle) * radius,
       });
+    });
+    return targets;
+  }, []);
 
-      return positions;
+  /** Initialize physics nodes if not yet done. */
+  const ensureNodes = useCallback(
+    (width: number, height: number) => {
+      const targets = computeTargets(width, height);
+
+      if (!initRef.current || nodesRef.current.length !== targets.length) {
+        nodesRef.current = targets.map((t, i) => ({
+          x: t.x + (Math.random() - 0.5) * 20,
+          y: t.y + (Math.random() - 0.5) * 20,
+          vx: 0,
+          vy: 0,
+          targetX: t.x,
+          targetY: t.y,
+          agentIndex: i - 1, // -1 = hub, 0+ = agents
+        }));
+        initRef.current = true;
+      } else {
+        // Update targets on resize
+        targets.forEach((t, i) => {
+          nodesRef.current[i].targetX = t.x;
+          nodesRef.current[i].targetY = t.y;
+        });
+      }
     },
-    []
+    [computeTargets]
   );
+
+  /** Run one physics tick. */
+  const tickPhysics = useCallback((time: number) => {
+    for (const node of nodesRef.current) {
+      const isHub = node.agentIndex === -1;
+      const k = isHub ? HUB_SPRING_K : SPRING_K;
+      const damp = isHub ? HUB_DAMPING : DAMPING;
+
+      // Spring force toward target
+      const dx = node.targetX - node.x;
+      const dy = node.targetY - node.y;
+      const ax = dx * k;
+      const ay = dy * k;
+
+      // Organic drift — unique per node using sin with phase offsets
+      const phase = (node.agentIndex + 1) * 1.618; // golden ratio spread
+      const driftX =
+        Math.sin(time * DRIFT_FREQ + phase) *
+        DRIFT_STRENGTH *
+        (isHub ? 0.3 : 1);
+      const driftY =
+        Math.cos(time * DRIFT_FREQ * 0.7 + phase * 1.3) *
+        DRIFT_STRENGTH *
+        (isHub ? 0.3 : 1);
+
+      node.vx = (node.vx + ax + driftX) * damp;
+      node.vy = (node.vy + ay + driftY) * damp;
+
+      node.x += node.vx;
+      node.y += node.vy;
+    }
+  }, []);
 
   const draw = useCallback(
     (ctx: CanvasRenderingContext2D, width: number, height: number, time: number) => {
@@ -71,140 +129,120 @@ export function NeuralGraph({ agentStates, isReviewActive }: NeuralGraphProps) {
       ctx.save();
       ctx.scale(dpr, dpr);
 
-      const positions = getNodePositions(width, height);
-      const hub = positions[0];
-      const agents = positions.slice(1);
+      ensureNodes(width, height);
+      tickPhysics(time);
+
+      const nodes = nodesRef.current;
+      const hub = nodes[0];
+      const agentNodes = nodes.slice(1);
 
       // ─── Draw connections ───
-      agents.forEach((node, i) => {
-        const agentConfig = node.agent as (typeof AGENT_REGISTRY)[number];
+      agentNodes.forEach((node, i) => {
+        const agentConfig = AGENT_REGISTRY[i];
         const state = agentStates.get(agentConfig.id);
         const isActive = state?.status === "running";
         const isCompleted = state?.status === "completed";
         const isError = state?.status === "error";
         const isPlanned = agentConfig.status === "planned";
 
-        // Connection line
-        ctx.beginPath();
-        ctx.moveTo(hub.x, hub.y);
-
-        // Curved bezier connection
         const midX = (hub.x + node.x) / 2;
         const midY = (hub.y + node.y) / 2;
-        const offsetX = (node.y - hub.y) * 0.15;
-        const offsetY = (hub.x - node.x) * 0.15;
+        const offsetX = (node.y - hub.y) * 0.12;
+        const offsetY = (hub.x - node.x) * 0.12;
 
+        ctx.beginPath();
+        ctx.moveTo(hub.x, hub.y);
         ctx.quadraticCurveTo(midX + offsetX, midY + offsetY, node.x, node.y);
 
         if (isError) {
           ctx.strokeStyle = `rgba(239, 68, 68, ${0.4 + Math.sin(time * 8) * 0.3})`;
           ctx.setLineDash([6, 8]);
         } else if (isActive) {
-          ctx.strokeStyle = agentConfig.color;
+          ctx.strokeStyle = `${agentConfig.color}`;
           ctx.setLineDash([]);
         } else if (isCompleted) {
-          ctx.strokeStyle = `rgba(16, 185, 129, 0.6)`;
+          ctx.strokeStyle = "rgba(16, 185, 129, 0.5)";
           ctx.setLineDash([]);
         } else if (isPlanned) {
-          ctx.strokeStyle = "rgba(63, 63, 70, 0.3)";
+          ctx.strokeStyle = "rgba(107, 114, 128, 0.2)";
           ctx.setLineDash([4, 8]);
         } else {
-          ctx.strokeStyle = "rgba(63, 63, 70, 0.5)";
+          ctx.strokeStyle = "rgba(107, 114, 128, 0.35)";
           ctx.setLineDash([]);
         }
 
-        ctx.lineWidth = isActive ? 2 : 1;
+        ctx.lineWidth = isActive ? 1.5 : 1;
         ctx.stroke();
         ctx.setLineDash([]);
       });
 
-      // ─── Draw particles (flowing along connections when agents are active) ───
-      const activeAgentIndices = agents
-        .map((node, i) => ({
-          index: i,
-          agent: node.agent as (typeof AGENT_REGISTRY)[number],
-        }))
-        .filter(({ agent }) => {
-          const state = agentStates.get(agent.id);
-          return state?.status === "running";
-        });
+      // ─── Particles ───
+      const activeIndices = agentNodes
+        .map((_, i) => i)
+        .filter((i) => agentStates.get(AGENT_REGISTRY[i].id)?.status === "running");
 
-      // Spawn new particles for active agents
-      if (activeAgentIndices.length > 0 && Math.random() < 0.15) {
-        const target =
-          activeAgentIndices[Math.floor(Math.random() * activeAgentIndices.length)];
+      if (activeIndices.length > 0 && Math.random() < 0.18) {
+        const idx = activeIndices[Math.floor(Math.random() * activeIndices.length)];
         particlesRef.current.push({
           progress: 0,
-          speed: 0.008 + Math.random() * 0.008,
-          nodeIndex: target.index,
+          speed: 0.006 + Math.random() * 0.008,
+          nodeIndex: idx,
         });
       }
 
-      // Update and draw particles
       particlesRef.current = particlesRef.current.filter((p) => {
         p.progress += p.speed;
         if (p.progress > 1) return false;
 
-        const node = agents[p.nodeIndex];
+        const node = agentNodes[p.nodeIndex];
         if (!node) return false;
 
         const t = p.progress;
         const midX = (hub.x + node.x) / 2;
         const midY = (hub.y + node.y) / 2;
-        const offsetX = (node.y - hub.y) * 0.15;
-        const offsetY = (hub.x - node.x) * 0.15;
+        const offsetX = (node.y - hub.y) * 0.12;
+        const offsetY = (hub.x - node.x) * 0.12;
 
-        // Quadratic bezier interpolation
-        const px =
-          (1 - t) * (1 - t) * hub.x +
-          2 * (1 - t) * t * (midX + offsetX) +
-          t * t * node.x;
-        const py =
-          (1 - t) * (1 - t) * hub.y +
-          2 * (1 - t) * t * (midY + offsetY) +
-          t * t * node.y;
+        const px = (1 - t) ** 2 * hub.x + 2 * (1 - t) * t * (midX + offsetX) + t ** 2 * node.x;
+        const py = (1 - t) ** 2 * hub.y + 2 * (1 - t) * t * (midY + offsetY) + t ** 2 * node.y;
 
-        const alpha = Math.sin(t * Math.PI); // fade in/out
-        const agentConfig = node.agent as (typeof AGENT_REGISTRY)[number];
+        const alpha = Math.sin(t * Math.PI);
+        const color = AGENT_REGISTRY[p.nodeIndex].color;
 
+        // Particle dot
         ctx.beginPath();
-        ctx.arc(px, py, 2.5, 0, Math.PI * 2);
-        ctx.fillStyle = agentConfig.color;
+        ctx.arc(px, py, 2, 0, Math.PI * 2);
+        ctx.fillStyle = color;
         ctx.globalAlpha = alpha * 0.9;
         ctx.fill();
 
-        // Glow effect
+        // Soft glow
         ctx.beginPath();
         ctx.arc(px, py, 6, 0, Math.PI * 2);
-        ctx.fillStyle = agentConfig.color;
-        ctx.globalAlpha = alpha * 0.15;
+        ctx.fillStyle = color;
+        ctx.globalAlpha = alpha * 0.12;
         ctx.fill();
 
         ctx.globalAlpha = 1;
         return true;
       });
 
-      // ─── Draw nodes ───
+      // ─── Hub node ───
+      const hubPulse = 1 + Math.sin(time * 2) * 0.025;
+      const hubGlowR = isReviewActive ? 28 : 16;
 
-      // Hub node (orchestrator)
-      const hubPulse = 1 + Math.sin(time * 2) * 0.03;
-      const hubGlow = isReviewActive ? 24 : 12;
-
-      // Hub outer glow
-      const hubGradient = ctx.createRadialGradient(
-        hub.x, hub.y, 0,
-        hub.x, hub.y, 28 * hubPulse + hubGlow
-      );
-      hubGradient.addColorStop(0, `rgba(168, 85, 247, ${isReviewActive ? 0.3 : 0.15})`);
-      hubGradient.addColorStop(1, "transparent");
+      // Glow
+      const hg = ctx.createRadialGradient(hub.x, hub.y, 0, hub.x, hub.y, 24 * hubPulse + hubGlowR);
+      hg.addColorStop(0, `rgba(168, 85, 247, ${isReviewActive ? 0.25 : 0.12})`);
+      hg.addColorStop(1, "rgba(0, 0, 0, 0)");
       ctx.beginPath();
-      ctx.arc(hub.x, hub.y, 28 * hubPulse + hubGlow, 0, Math.PI * 2);
-      ctx.fillStyle = hubGradient;
+      ctx.arc(hub.x, hub.y, 24 * hubPulse + hubGlowR, 0, Math.PI * 2);
+      ctx.fillStyle = hg;
       ctx.fill();
 
-      // Hub core
+      // Core
       ctx.beginPath();
-      ctx.arc(hub.x, hub.y, 20 * hubPulse, 0, Math.PI * 2);
+      ctx.arc(hub.x, hub.y, 22 * hubPulse, 0, Math.PI * 2);
       ctx.fillStyle = "#0a0a0a";
       ctx.strokeStyle = ORCHESTRATOR_CONFIG.color;
       ctx.lineWidth = 2;
@@ -218,59 +256,47 @@ export function NeuralGraph({ agentStates, isReviewActive }: NeuralGraphProps) {
       ctx.textBaseline = "middle";
       ctx.fillText("ORCH", hub.x, hub.y);
 
-      // Agent nodes
-      agents.forEach((node) => {
-        const agentConfig = node.agent as (typeof AGENT_REGISTRY)[number];
+      // ─── Agent nodes ───
+      agentNodes.forEach((node, i) => {
+        const agentConfig = AGENT_REGISTRY[i];
         const state = agentStates.get(agentConfig.id);
         const isActive = state?.status === "running";
         const isCompleted = state?.status === "completed";
         const isError = state?.status === "error";
         const isPlanned = agentConfig.status === "planned";
 
-        const nodeRadius = 16;
-        const pulse = isActive ? 1 + Math.sin(time * 4) * 0.06 : 1;
+        const R = 16;
+        const pulse = isActive ? 1 + Math.sin(time * 4) * 0.05 : 1;
 
-        // Outer glow
+        // Glow ring
         if (isActive || isCompleted) {
-          const glowSize = isActive ? 20 : 12;
-          const gradient = ctx.createRadialGradient(
-            node.x, node.y, 0,
-            node.x, node.y, nodeRadius + glowSize
-          );
-          if (isActive) {
-            // Use the agent's colorDim (already has low alpha)
-            gradient.addColorStop(0, agentConfig.colorDim);
-          } else {
-            gradient.addColorStop(0, "rgba(16, 185, 129, 0.2)");
-          }
-          gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+          const gr = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, R + (isActive ? 20 : 12));
+          gr.addColorStop(0, isActive ? agentConfig.colorDim : "rgba(16, 185, 129, 0.18)");
+          gr.addColorStop(1, "rgba(0, 0, 0, 0)");
           ctx.beginPath();
-          ctx.arc(node.x, node.y, (nodeRadius + glowSize) * pulse, 0, Math.PI * 2);
-          ctx.fillStyle = gradient;
+          ctx.arc(node.x, node.y, (R + (isActive ? 20 : 12)) * pulse, 0, Math.PI * 2);
+          ctx.fillStyle = gr;
           ctx.fill();
         }
 
-        // Ring expand animation when active
+        // Expand ring when running
         if (isActive) {
-          const ringPhase = (time * 1.5) % 2;
-          if (ringPhase < 1) {
-            const ringScale = 1 + ringPhase * 1.5;
-            const ringAlpha = 1 - ringPhase;
+          const rp = (time * 1.5) % 2;
+          if (rp < 1) {
             ctx.beginPath();
-            ctx.arc(node.x, node.y, nodeRadius * ringScale, 0, Math.PI * 2);
+            ctx.arc(node.x, node.y, R * (1 + rp * 1.5), 0, Math.PI * 2);
             ctx.strokeStyle = agentConfig.color;
-            ctx.globalAlpha = ringAlpha * 0.3;
+            ctx.globalAlpha = (1 - rp) * 0.25;
             ctx.lineWidth = 1;
             ctx.stroke();
             ctx.globalAlpha = 1;
           }
         }
 
-        // Node body
+        // Body
         ctx.beginPath();
-        ctx.arc(node.x, node.y, nodeRadius * pulse, 0, Math.PI * 2);
+        ctx.arc(node.x, node.y, R * pulse, 0, Math.PI * 2);
         ctx.fillStyle = "#0a0a0a";
-
         if (isError) {
           ctx.strokeStyle = `rgba(239, 68, 68, ${0.5 + Math.sin(time * 8) * 0.3})`;
         } else if (isActive) {
@@ -278,63 +304,52 @@ export function NeuralGraph({ agentStates, isReviewActive }: NeuralGraphProps) {
         } else if (isCompleted) {
           ctx.strokeStyle = "#10b981";
         } else if (isPlanned) {
-          ctx.strokeStyle = "rgba(63, 63, 70, 0.3)";
-          ctx.globalAlpha = 0.4;
+          ctx.strokeStyle = "rgba(107, 114, 128, 0.25)";
+          ctx.globalAlpha = 0.5;
         } else {
-          ctx.strokeStyle = "rgba(63, 63, 70, 0.6)";
+          ctx.strokeStyle = "rgba(107, 114, 128, 0.45)";
         }
-
         ctx.lineWidth = isActive ? 2 : 1;
         ctx.fill();
         ctx.stroke();
         ctx.globalAlpha = 1;
 
-        // Node label
+        // Short name
         ctx.font = "6px 'Press Start 2P', monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-
-        if (isPlanned) {
-          ctx.globalAlpha = 0.3;
-        }
-
+        if (isPlanned) ctx.globalAlpha = 0.4;
         ctx.fillStyle = isError
           ? "#ef4444"
           : isActive
             ? agentConfig.color
             : isCompleted
               ? "#10b981"
-              : "#71717a";
+              : "#a1a1aa";
         ctx.fillText(agentConfig.shortName, node.x, node.y);
         ctx.globalAlpha = 1;
 
-        // Status text below node
+        // Status below
         if (state) {
-          ctx.font = "10px var(--font-mono), monospace";
+          ctx.font = "11px system-ui, sans-serif";
           ctx.fillStyle = isError
-            ? "rgba(239, 68, 68, 0.7)"
+            ? "rgba(239, 68, 68, 0.85)"
             : isActive
-              ? "rgba(0, 240, 255, 0.7)"
-              : "rgba(16, 185, 129, 0.7)";
-          const statusLabel = isError
-            ? "ERROR"
-            : isActive
-              ? "SCANNING"
-              : `${state.duration?.toFixed(1)}s`;
-          ctx.fillText(statusLabel, node.x, node.y + nodeRadius + 14);
+              ? "rgba(0, 240, 255, 0.85)"
+              : "rgba(16, 185, 129, 0.85)";
+          const label = isError ? "ERROR" : isActive ? "SCANNING" : `${state.duration?.toFixed(1)}s`;
+          ctx.fillText(label, node.x, node.y + R + 16);
         }
 
-        // Agent name above node
-        ctx.font = "10px system-ui, sans-serif";
-        ctx.fillStyle = isPlanned
-          ? "rgba(113, 113, 122, 0.3)"
-          : "rgba(228, 228, 231, 0.6)";
-        ctx.fillText(agentConfig.name.replace(" Agent", ""), node.x, node.y - nodeRadius - 10);
+        // Name above
+        ctx.font = "11px system-ui, sans-serif";
+        ctx.fillStyle = isPlanned ? "rgba(107, 114, 128, 0.4)" : "rgba(228, 228, 231, 0.75)";
+        ctx.fillText(agentConfig.name.replace(" Agent", ""), node.x, node.y - R - 12);
       });
 
       ctx.restore();
     },
-    [agentStates, isReviewActive, getNodePositions]
+    [agentStates, isReviewActive, ensureNodes, tickPhysics]
   );
 
   useEffect(() => {
@@ -359,9 +374,9 @@ export function NeuralGraph({ agentStates, isReviewActive }: NeuralGraphProps) {
     observer.observe(container);
 
     const animate = (timestamp: number) => {
-      timeRef.current = timestamp / 1000;
+      const t = timestamp / 1000;
       const rect = container.getBoundingClientRect();
-      draw(ctx, rect.width, rect.height, timeRef.current);
+      draw(ctx, rect.width, rect.height, t);
       frameRef.current = requestAnimationFrame(animate);
     };
 
@@ -375,9 +390,6 @@ export function NeuralGraph({ agentStates, isReviewActive }: NeuralGraphProps) {
 
   return (
     <div className={styles.container} ref={containerRef}>
-      <div className={styles.label}>
-        <span className={styles.labelText}>AGENT NETWORK</span>
-      </div>
       <canvas ref={canvasRef} className={styles.canvas} />
     </div>
   );

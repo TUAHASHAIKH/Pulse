@@ -3,81 +3,124 @@
 .root {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
   position: relative;
   z-index: 1;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: var(--sp-4);
-  padding: var(--sp-4);
-  flex: 1;
-  min-height: 0;
-  height: calc(100vh - 48px);
   overflow: hidden;
 }
 
-/* ─── Left Column: Graph + Metrics ─── */
-.leftCol {
+/* ─── Shell: workspace + nav side-by-side ─── */
+.shell {
   display: flex;
-  flex-direction: column;
-  gap: var(--sp-4);
+  flex: 1;
   min-height: 0;
 }
 
-.graphPanel {
+/* ─── Workspace ─── */
+.workspace {
   flex: 1;
-  min-height: 300px;
+  min-width: 0;
+  padding: var(--sp-6);
+  overflow-y: auto;
 }
 
-.metricsPanel {
+/* ─── Right Sidebar Nav ─── */
+.nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-4) var(--sp-3);
+  border-left: 1px solid var(--nx-border);
   flex-shrink: 0;
+  width: 64px;
 }
 
-/* ─── Right Column: Timeline + Findings ─── */
-.rightCol {
+.navItem {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-4);
-  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 48px;
+  height: 56px;
+  padding: var(--sp-2) 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--nx-text-ghost);
+  cursor: pointer;
+  transition:
+    color var(--duration-normal) var(--ease-out),
+    background var(--duration-normal) var(--ease-out),
+    border-color var(--duration-normal) var(--ease-out),
+    box-shadow var(--duration-normal) var(--ease-out);
 }
 
-.timelinePanel {
-  flex: 1;
-  min-height: 200px;
-  overflow: hidden;
+.navItem:hover {
+  color: var(--nx-text-dim);
+  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--nx-border);
 }
 
-.findingsPanel {
-  flex: 1;
-  min-height: 200px;
-  overflow: hidden;
+.navItemActive {
+  color: var(--nx-cyan);
+  background: var(--nx-cyan-dim);
+  border-color: rgba(0, 240, 255, 0.2);
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.08);
+}
+
+.navItemActive:hover {
+  color: var(--nx-cyan);
+  background: var(--nx-cyan-dim);
+  border-color: rgba(0, 240, 255, 0.3);
+}
+
+.navIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.navLabel {
+  font-family: var(--font-pixel);
+  font-size: 5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  line-height: 1;
 }
 
 /* ─── Responsive ─── */
 
 /* Tablet */
 @media (max-width: 1024px) {
-  .grid {
-    grid-template-columns: 1fr;
-    max-height: none;
-  }
-
-  .graphPanel {
-    min-height: 350px;
+  .workspace {
+    padding: var(--sp-4);
   }
 }
 
-/* Mobile */
+/* Mobile — nav moves to bottom */
 @media (max-width: 640px) {
-  .grid {
-    padding: var(--sp-3);
+  .shell {
+    flex-direction: column-reverse;
+  }
+
+  .nav {
+    flex-direction: row;
+    justify-content: center;
+    width: auto;
+    border-left: none;
+    border-top: 1px solid var(--nx-border);
+    padding: var(--sp-2) var(--sp-4);
     gap: var(--sp-3);
   }
 
-  .graphPanel {
-    min-height: 280px;
+  .navItem {
+    width: 56px;
+    height: 48px;
+  }
+
+  .workspace {
+    padding: var(--sp-3);
   }
 }
