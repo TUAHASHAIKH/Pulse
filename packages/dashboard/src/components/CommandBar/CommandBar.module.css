@@ -4,8 +4,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 48px;
-  padding: 0 var(--sp-6);
+  height: 56px;
+  padding: 0 var(--sp-8);
   background: var(--nx-surface);
   border-bottom: 1px solid var(--nx-border);
   position: sticky;
@@ -26,8 +26,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   background: var(--nx-cyan-dim);
   border: 1px solid rgba(0, 240, 255, 0.2);
   border-radius: var(--radius-sm);
@@ -36,16 +36,16 @@
 
 .logoText {
   font-family: var(--font-pixel);
-  font-size: 10px;
+  font-size: 13px;
   color: var(--nx-text);
-  letter-spacing: 2px;
+  letter-spacing: 3px;
 }
 
 .versionBadge {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--nx-text-ghost);
-  padding: 1px 6px;
+  padding: 2px 8px;
   border: 1px solid var(--nx-border);
   border-radius: 2px;
 }
@@ -65,21 +65,21 @@
 
 .statusText {
   font-family: var(--font-pixel);
-  font-size: 7px;
-  letter-spacing: 1px;
+  font-size: 8px;
+  letter-spacing: 1.5px;
   color: var(--nx-text-dim);
 }
 
 .divider {
   width: 1px;
-  height: 16px;
+  height: 20px;
   background: var(--nx-border);
 }
 
 .statusMeta {
   display: flex;
   align-items: center;
-  gap: var(--sp-1);
+  gap: var(--sp-2);
 }
 
 .metaIcon {
@@ -88,7 +88,7 @@
 
 .metaText {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--nx-text-ghost);
 }
 
@@ -104,14 +104,15 @@
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
-  padding: 6px 14px;
+  padding: 8px 20px;
+  height: 36px;
   background: transparent;
   border: 1px solid var(--nx-cyan);
   border-radius: var(--radius-xs);
   color: var(--nx-cyan);
   font-family: var(--font-pixel);
-  font-size: 7px;
-  letter-spacing: 1px;
+  font-size: 9px;
+  letter-spacing: 1.5px;
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-out);
   white-space: nowrap;
@@ -136,6 +137,9 @@
   .statusSection {
     display: none;
   }
+  .bar {
+    padding: 0 var(--sp-5);
+  }
 }
 
 @media (max-width: 480px) {
@@ -144,5 +148,10 @@
   }
   .versionBadge {
     display: none;
+  }
+  .simulateButton {
+    font-size: 8px;
+    padding: 6px 14px;
+    height: 32px;
   }
 }

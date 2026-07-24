@@ -20,7 +20,7 @@
 .workspace {
   flex: 1;
   min-width: 0;
-  padding: var(--sp-6);
+  padding: var(--sp-8);
   overflow-y: auto;
 }
 
@@ -29,11 +29,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--sp-2);
-  padding: var(--sp-4) var(--sp-3);
+  gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-3);
   border-left: 1px solid var(--nx-border);
   flex-shrink: 0;
-  width: 64px;
+  width: 80px;
 }
 
 .navItem {
@@ -41,9 +41,9 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  width: 48px;
-  height: 56px;
+  gap: 6px;
+  width: 60px;
+  height: 64px;
   padding: var(--sp-2) 0;
   background: transparent;
   border: 1px solid transparent;
@@ -66,14 +66,14 @@
 .navItemActive {
   color: var(--nx-cyan);
   background: var(--nx-cyan-dim);
-  border-color: rgba(0, 240, 255, 0.2);
-  box-shadow: 0 0 16px rgba(0, 240, 255, 0.08);
+  border-color: rgba(0, 240, 255, 0.25);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.1);
 }
 
 .navItemActive:hover {
   color: var(--nx-cyan);
   background: var(--nx-cyan-dim);
-  border-color: rgba(0, 240, 255, 0.3);
+  border-color: rgba(0, 240, 255, 0.35);
 }
 
 .navIcon {
@@ -84,7 +84,7 @@
 
 .navLabel {
   font-family: var(--font-pixel);
-  font-size: 5px;
+  font-size: 7px;
   letter-spacing: 1px;
   text-transform: uppercase;
   line-height: 1;
@@ -95,7 +95,7 @@
 /* Tablet */
 @media (max-width: 1024px) {
   .workspace {
-    padding: var(--sp-4);
+    padding: var(--sp-5);
   }
 }
 
@@ -116,11 +116,11 @@
   }
 
   .navItem {
-    width: 56px;
-    height: 48px;
+    width: 60px;
+    height: 52px;
   }
 
   .workspace {
-    padding: var(--sp-3);
+    padding: var(--sp-4);
   }
 }

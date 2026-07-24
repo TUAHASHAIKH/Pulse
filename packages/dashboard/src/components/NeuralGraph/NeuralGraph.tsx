@@ -47,7 +47,7 @@ export function NeuralGraph({ agentStates, isReviewActive }: NeuralGraphProps) {
   const computeTargets = useCallback((width: number, height: number) => {
     const cx = width / 2;
     const cy = height / 2;
-    const radius = Math.min(width, height) * 0.3;
+    const radius = Math.min(width, height) * 0.38;
     const agents = AGENT_REGISTRY;
     const angleStep = (2 * Math.PI) / agents.length;
     const startAngle = -Math.PI / 2;
@@ -161,17 +161,17 @@ export function NeuralGraph({ agentStates, isReviewActive }: NeuralGraphProps) {
           ctx.strokeStyle = `${agentConfig.color}`;
           ctx.setLineDash([]);
         } else if (isCompleted) {
-          ctx.strokeStyle = "rgba(16, 185, 129, 0.5)";
+          ctx.strokeStyle = "rgba(16, 185, 129, 0.6)";
           ctx.setLineDash([]);
         } else if (isPlanned) {
-          ctx.strokeStyle = "rgba(107, 114, 128, 0.2)";
+          ctx.strokeStyle = "rgba(107, 114, 128, 0.4)";
           ctx.setLineDash([4, 8]);
         } else {
-          ctx.strokeStyle = "rgba(107, 114, 128, 0.35)";
+          ctx.strokeStyle = "rgba(107, 114, 128, 0.6)";
           ctx.setLineDash([]);
         }
 
-        ctx.lineWidth = isActive ? 1.5 : 1;
+        ctx.lineWidth = isActive ? 2.5 : 1.5;
         ctx.stroke();
         ctx.setLineDash([]);
       });
@@ -229,28 +229,28 @@ export function NeuralGraph({ agentStates, isReviewActive }: NeuralGraphProps) {
 
       // ─── Hub node ───
       const hubPulse = 1 + Math.sin(time * 2) * 0.025;
-      const hubGlowR = isReviewActive ? 28 : 16;
+      const hubGlowR = isReviewActive ? 40 : 20;
 
       // Glow
-      const hg = ctx.createRadialGradient(hub.x, hub.y, 0, hub.x, hub.y, 24 * hubPulse + hubGlowR);
-      hg.addColorStop(0, `rgba(168, 85, 247, ${isReviewActive ? 0.25 : 0.12})`);
+      const hg = ctx.createRadialGradient(hub.x, hub.y, 0, hub.x, hub.y, 36 * hubPulse + hubGlowR);
+      hg.addColorStop(0, `rgba(168, 85, 247, ${isReviewActive ? 0.35 : 0.15})`);
       hg.addColorStop(1, "rgba(0, 0, 0, 0)");
       ctx.beginPath();
-      ctx.arc(hub.x, hub.y, 24 * hubPulse + hubGlowR, 0, Math.PI * 2);
+      ctx.arc(hub.x, hub.y, 36 * hubPulse + hubGlowR, 0, Math.PI * 2);
       ctx.fillStyle = hg;
       ctx.fill();
 
       // Core
       ctx.beginPath();
-      ctx.arc(hub.x, hub.y, 22 * hubPulse, 0, Math.PI * 2);
+      ctx.arc(hub.x, hub.y, 32 * hubPulse, 0, Math.PI * 2);
       ctx.fillStyle = "#0a0a0a";
       ctx.strokeStyle = ORCHESTRATOR_CONFIG.color;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
       ctx.fill();
       ctx.stroke();
 
       // Hub label
-      ctx.font = "7px 'Press Start 2P', monospace";
+      ctx.font = "10px 'Press Start 2P', monospace";
       ctx.fillStyle = ORCHESTRATOR_CONFIG.color;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -265,16 +265,17 @@ export function NeuralGraph({ agentStates, isReviewActive }: NeuralGraphProps) {
         const isError = state?.status === "error";
         const isPlanned = agentConfig.status === "planned";
 
-        const R = 16;
+        const R = 24;
         const pulse = isActive ? 1 + Math.sin(time * 4) * 0.05 : 1;
 
         // Glow ring
         if (isActive || isCompleted) {
-          const gr = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, R + (isActive ? 20 : 12));
-          gr.addColorStop(0, isActive ? agentConfig.colorDim : "rgba(16, 185, 129, 0.18)");
+          const glowSize = isActive ? 28 : 16;
+          const gr = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, R + glowSize);
+          gr.addColorStop(0, isActive ? agentConfig.colorDim : "rgba(16, 185, 129, 0.25)");
           gr.addColorStop(1, "rgba(0, 0, 0, 0)");
           ctx.beginPath();
-          ctx.arc(node.x, node.y, (R + (isActive ? 20 : 12)) * pulse, 0, Math.PI * 2);
+          ctx.arc(node.x, node.y, (R + glowSize) * pulse, 0, Math.PI * 2);
           ctx.fillStyle = gr;
           ctx.fill();
         }
@@ -286,8 +287,8 @@ export function NeuralGraph({ agentStates, isReviewActive }: NeuralGraphProps) {
             ctx.beginPath();
             ctx.arc(node.x, node.y, R * (1 + rp * 1.5), 0, Math.PI * 2);
             ctx.strokeStyle = agentConfig.color;
-            ctx.globalAlpha = (1 - rp) * 0.25;
-            ctx.lineWidth = 1;
+            ctx.globalAlpha = (1 - rp) * 0.35;
+            ctx.lineWidth = 1.5;
             ctx.stroke();
             ctx.globalAlpha = 1;
           }
@@ -304,47 +305,47 @@ export function NeuralGraph({ agentStates, isReviewActive }: NeuralGraphProps) {
         } else if (isCompleted) {
           ctx.strokeStyle = "#10b981";
         } else if (isPlanned) {
-          ctx.strokeStyle = "rgba(107, 114, 128, 0.25)";
-          ctx.globalAlpha = 0.5;
+          ctx.strokeStyle = "rgba(107, 114, 128, 0.4)";
+          ctx.globalAlpha = 0.7;
         } else {
-          ctx.strokeStyle = "rgba(107, 114, 128, 0.45)";
+          ctx.strokeStyle = "rgba(107, 114, 128, 0.7)";
         }
-        ctx.lineWidth = isActive ? 2 : 1;
+        ctx.lineWidth = isActive ? 2.5 : 1.5;
         ctx.fill();
         ctx.stroke();
         ctx.globalAlpha = 1;
 
         // Short name
-        ctx.font = "6px 'Press Start 2P', monospace";
+        ctx.font = "8px 'Press Start 2P', monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        if (isPlanned) ctx.globalAlpha = 0.4;
+        if (isPlanned) ctx.globalAlpha = 0.6;
         ctx.fillStyle = isError
           ? "#ef4444"
           : isActive
             ? agentConfig.color
             : isCompleted
               ? "#10b981"
-              : "#a1a1aa";
+              : "#d4d4d8";
         ctx.fillText(agentConfig.shortName, node.x, node.y);
         ctx.globalAlpha = 1;
 
         // Status below
         if (state) {
-          ctx.font = "11px system-ui, sans-serif";
+          ctx.font = "13px system-ui, sans-serif";
           ctx.fillStyle = isError
-            ? "rgba(239, 68, 68, 0.85)"
+            ? "rgba(239, 68, 68, 0.95)"
             : isActive
-              ? "rgba(0, 240, 255, 0.85)"
-              : "rgba(16, 185, 129, 0.85)";
+              ? "rgba(0, 240, 255, 0.95)"
+              : "rgba(16, 185, 129, 0.95)";
           const label = isError ? "ERROR" : isActive ? "SCANNING" : `${state.duration?.toFixed(1)}s`;
-          ctx.fillText(label, node.x, node.y + R + 16);
+          ctx.fillText(label, node.x, node.y + R + 20);
         }
 
         // Name above
-        ctx.font = "11px system-ui, sans-serif";
-        ctx.fillStyle = isPlanned ? "rgba(107, 114, 128, 0.4)" : "rgba(228, 228, 231, 0.75)";
-        ctx.fillText(agentConfig.name.replace(" Agent", ""), node.x, node.y - R - 12);
+        ctx.font = "14px system-ui, sans-serif";
+        ctx.fillStyle = isPlanned ? "rgba(161, 161, 170, 0.7)" : "rgba(244, 244, 245, 0.9)";
+        ctx.fillText(agentConfig.name.replace(" Agent", ""), node.x, node.y - R - 16);
       });
 
       ctx.restore();

@@ -19,10 +19,10 @@ import styles from "./page.module.css";
 type Section = "network" | "metrics" | "timeline" | "findings";
 
 const NAV_ITEMS: { id: Section; label: string; icon: React.ReactNode }[] = [
-  { id: "network", label: "NETWORK", icon: <Network size={18} /> },
-  { id: "timeline", label: "LOG", icon: <ScrollText size={18} /> },
-  { id: "metrics", label: "METRICS", icon: <BarChart3 size={18} /> },
-  { id: "findings", label: "FINDINGS", icon: <ShieldAlert size={18} /> },
+  { id: "network", label: "NETWORK", icon: <Network size={22} /> },
+  { id: "timeline", label: "LOG", icon: <ScrollText size={22} /> },
+  { id: "metrics", label: "METRICS", icon: <BarChart3 size={22} /> },
+  { id: "findings", label: "FINDINGS", icon: <ShieldAlert size={22} /> },
 ];
 
 export default function Dashboard() {
