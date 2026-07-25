@@ -1,0 +1,26 @@
+# Pulse Sandbox Environment
+# Minimal image with Python + Node.js for running tests
+# Used by the Repair Agent to verify patches in isolation
+
+FROM python:3.11-slim
+
+# Install Node.js 18
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        curl \
+        git \
+        patch \
+        && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+        && apt-get install -y nodejs \
+        && apt-get clean \
+        && rm -rf /var/lib/apt/lists/*
+
+# Install common test runners
+RUN pip install --no-cache-dir pytest pytest-asyncio && \
+    npm install -g jest
+
+# Working directory for the project files
+WORKDIR /workspace
+
+# Default command — overridden by docker_runner.py
+CMD ["bash"]

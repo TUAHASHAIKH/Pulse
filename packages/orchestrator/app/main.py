@@ -31,8 +31,13 @@ from app.config import settings
 from app.webhooks.github_handler import router as webhook_router
 from app.ws.socket_server import socket_app
 from app.models.webhook_events import HealthResponse
-from app.models.agent_models import ReviewRequest, ReviewSource, ReviewAPIRequest, ReviewAPIResponse
-from app.agents.review_runner import run_review
+from app.models.agent_models import (
+    ReviewRequest, ReviewSource, ReviewAPIRequest, ReviewAPIResponse,
+    FixApplicationRequest, FixApplicationResponse, FixDeliveryMethod,
+)
+from app.agents.review_runner import run_review, get_review
+from app.agents import fix_applicator
+from app import settings_store
 from app.utils.logger import setup_logger
 
 logger = setup_logger("pulse.main")
@@ -154,6 +159,135 @@ async def health_check():
         version="0.1.0",
         uptime_seconds=round(time.time() - _start_time, 2),
     )
+
+
+# ─── Fix Application API (Phase 4) ───
+
+
+@app.post("/api/fix/apply-local", response_model=FixApplicationResponse, tags=["Fix"])
+async def apply_fix_locally(request: FixApplicationRequest):
+    """
+    Apply a verified fix to the user's local filesystem.
+    Uses `git apply` — changes files but does NOT commit.
+    """
+    review = get_review(request.review_id)
+    if not review:
+        return FixApplicationResponse(
+            success=False, method="local",
+            message=f"Review '{request.review_id}' not found.",
+        )
+
+    repair_results = review.get("repair_results", [])
+    matching = [r for r in repair_results if r.finding_index == request.finding_index]
+    if not matching:
+        return FixApplicationResponse(
+            success=False, method="local",
+            message=f"No repair found for finding index {request.finding_index}.",
+        )
+
+    repair = matching[0]
+    from app.config import get_project_root
+    project_root = get_project_root() or "."
+
+    return await fix_applicator.apply_locally(repair.patch, project_root)
+
+
+@app.post("/api/fix/pr-comment", response_model=FixApplicationResponse, tags=["Fix"])
+async def post_fix_as_comment(request: FixApplicationRequest):
+    """
+    Post a verified fix as a comment on a GitHub PR.
+    """
+    review = get_review(request.review_id)
+    if not review:
+        return FixApplicationResponse(
+            success=False, method="pr_comment",
+            message=f"Review '{request.review_id}' not found.",
+        )
+
+    repair_results = review.get("repair_results", [])
+    matching = [r for r in repair_results if r.finding_index == request.finding_index]
+    if not matching:
+        return FixApplicationResponse(
+            success=False, method="pr_comment",
+            message=f"No repair found for finding index {request.finding_index}.",
+        )
+
+    repair = matching[0]
+    repo = request.repo or review.get("request", {}).repo
+    pr_number = request.pr_number or review.get("request", {}).pr_number
+
+    if not repo or not pr_number:
+        return FixApplicationResponse(
+            success=False, method="pr_comment",
+            message="Missing repo or pr_number for PR comment.",
+        )
+
+    return await fix_applicator.post_as_pr_comment(
+        patch=repair.patch,
+        explanation=repair.explanation,
+        finding_title=repair.finding_title,
+        repo=repo,
+        pr_number=pr_number,
+    )
+
+
+@app.post("/api/fix/commit-branch", response_model=FixApplicationResponse, tags=["Fix"])
+async def commit_fix_to_branch(request: FixApplicationRequest):
+    """
+    Commit a verified fix to a new branch on GitHub.
+    Creates pulse/fix-{review_id} branch.
+    """
+    review = get_review(request.review_id)
+    if not review:
+        return FixApplicationResponse(
+            success=False, method="branch",
+            message=f"Review '{request.review_id}' not found.",
+        )
+
+    repair_results = review.get("repair_results", [])
+    matching = [r for r in repair_results if r.finding_index == request.finding_index]
+    if not matching:
+        return FixApplicationResponse(
+            success=False, method="branch",
+            message=f"No repair found for finding index {request.finding_index}.",
+        )
+
+    repair = matching[0]
+    repo = request.repo or review.get("request", {}).repo
+    pr_number = request.pr_number or review.get("request", {}).pr_number
+
+    if not repo or not pr_number:
+        return FixApplicationResponse(
+            success=False, method="branch",
+            message="Missing repo or pr_number for branch commit.",
+        )
+
+    return await fix_applicator.commit_to_branch(
+        patch=repair.patch,
+        explanation=repair.explanation,
+        finding_title=repair.finding_title,
+        review_id=request.review_id,
+        repo=repo,
+        pr_number=pr_number,
+    )
+
+
+# ─── Settings API ───
+
+
+@app.get("/api/settings", tags=["Settings"])
+async def get_settings():
+    """Get current user settings."""
+    return settings_store.load_settings()
+
+
+@app.post("/api/settings", tags=["Settings"])
+async def update_settings(settings_data: dict):
+    """Update user settings."""
+    current = settings_store.load_settings()
+    current.update(settings_data)
+    success = settings_store.save_settings(current)
+    return {"success": success, "settings": current}
 
 
 # ─── Mount Socket.io ───

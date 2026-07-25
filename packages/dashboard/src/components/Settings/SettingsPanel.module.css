@@ -1,0 +1,202 @@
+.container {
+  padding: 1.5rem;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.title {
+  font-family: var(--font-press-start);
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 0.1em;
+  margin-bottom: 2rem;
+  text-transform: uppercase;
+}
+
+/* ─── Section ─── */
+
+.section {
+  margin-bottom: 2rem;
+}
+
+.sectionTitle {
+  font-family: var(--font-geist-mono);
+  font-size: 0.75rem;
+  color: #e2e8f0;
+  margin-bottom: 0.25rem;
+  letter-spacing: 0.05em;
+}
+
+.sectionDesc {
+  font-family: var(--font-geist-mono);
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.35);
+  margin-bottom: 1rem;
+}
+
+/* ─── Radio Group ─── */
+
+.radioGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.radioOption {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.radioOption:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.radioOptionSelected {
+  background: rgba(168, 85, 247, 0.08);
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+.radioInput {
+  accent-color: #a855f7;
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.radioLabel {
+  font-family: var(--font-geist-mono);
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+}
+
+.radioLabelSelected {
+  color: #e2e8f0;
+}
+
+/* ─── Toggle ─── */
+
+.toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.75rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 0.5rem;
+}
+
+.toggle:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.toggleLabel {
+  font-family: var(--font-geist-mono);
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.toggleSwitch {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  position: relative;
+  transition: background 0.2s;
+  border: none;
+  cursor: pointer;
+}
+
+.toggleSwitchActive {
+  background: rgba(16, 185, 129, 0.5);
+}
+
+.toggleDot {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s;
+}
+
+.toggleDotActive {
+  transform: translateX(16px);
+}
+
+/* ─── Number Input ─── */
+
+.numberRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.75rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+}
+
+.numberLabel {
+  font-family: var(--font-geist-mono);
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.numberInput {
+  width: 50px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: #e2e8f0;
+  font-family: var(--font-geist-mono);
+  font-size: 0.7rem;
+  text-align: center;
+  padding: 0.25rem;
+}
+
+/* ─── Save Button ─── */
+
+.saveBtn {
+  font-family: var(--font-geist-mono);
+  font-size: 0.65rem;
+  padding: 0.5rem 1.5rem;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: 4px;
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transition: all 0.2s;
+  margin-top: 1rem;
+}
+
+.saveBtn:hover {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.6);
+}
+
+.saveBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.feedback {
+  font-family: var(--font-geist-mono);
+  font-size: 0.65rem;
+  color: #10b981;
+  margin-top: 0.75rem;
+}

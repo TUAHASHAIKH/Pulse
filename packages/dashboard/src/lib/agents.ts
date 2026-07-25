@@ -68,7 +68,7 @@ export const AGENT_REGISTRY: AgentConfig[] = [
     colorDim: "rgba(16, 185, 129, 0.15)",
     description: "Auto-fixes critical findings in a Docker sandbox",
     phase: 4,
-    status: "planned",
+    status: "active",
   },
   {
     id: "sentinel",

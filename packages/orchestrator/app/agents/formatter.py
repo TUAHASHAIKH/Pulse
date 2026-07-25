@@ -10,7 +10,7 @@ Each agent's findings are formatted the same way — consistent
 experience regardless of which agent produced them.
 """
 
-from app.models.agent_models import AgentResult, Finding, Severity
+from app.models.agent_models import AgentResult, Finding, Severity, RepairResult
 
 
 # Severity → emoji mapping
@@ -27,12 +27,16 @@ SEVERITY_LABELS = {
 }
 
 
-def format_as_github_comment(results: list[AgentResult]) -> str:
+def format_as_github_comment(
+    results: list[AgentResult],
+    repair_results: list[RepairResult] | None = None,
+) -> str:
     """
     Format one or more AgentResults as a GitHub PR comment.
 
     Produces a clean, scannable Markdown comment that groups
     findings by severity and includes suggested fixes.
+    Optionally includes repair patches if available.
     """
     sections = []
 
@@ -83,6 +87,10 @@ def format_as_github_comment(results: list[AgentResult]) -> str:
         for finding in sorted_findings:
             sections.append(_format_finding(finding))
 
+    # Repair results (if any)
+    if repair_results:
+        sections.append(_format_repair_section(repair_results))
+
     # Footer
     sections.append(_format_footer(results))
 
@@ -131,6 +139,42 @@ def _format_footer(results: list[AgentResult]) -> str:
         f"{total_duration:.1f}s · "
         f"{total_tokens:,} tokens*"
     )
+
+
+def _format_repair_section(repair_results: list[RepairResult]) -> str:
+    """Format repair results as a Markdown section."""
+    lines = []
+    lines.append("### 🔧 Automated Fixes\n")
+
+    succeeded = [r for r in repair_results if r.status.value == "succeeded"]
+    failed = [r for r in repair_results if r.status.value == "failed"]
+
+    if succeeded:
+        lines.append(f"**{len(succeeded)} fix(es) generated and verified:**\n")
+
+        for repair in succeeded:
+            lines.append(f"#### ✅ Fix: {repair.finding_title}")
+            lines.append(f"**File:** `{repair.finding_file}`")
+            lines.append(f"**Explanation:** {repair.explanation}")
+            lines.append(f"**Confidence:** {repair.confidence:.0%}")
+            lines.append(f"**Attempts:** {repair.attempts_taken}\n")
+
+            if repair.patch:
+                lines.append("<details>")
+                lines.append("<summary>📋 View Patch</summary>\n")
+                lines.append("```diff")
+                lines.append(repair.patch)
+                lines.append("```\n")
+                lines.append("</details>\n")
+
+            lines.append("---\n")
+
+    if failed:
+        lines.append(f"\n**{len(failed)} issue(s) could not be auto-fixed:**\n")
+        for repair in failed:
+            lines.append(f"- ❌ {repair.finding_title} ({repair.finding_file}): {repair.error or 'Unknown error'}")
+
+    return "\n".join(lines)
 
 
 def format_as_terminal(results: list[AgentResult]) -> str:

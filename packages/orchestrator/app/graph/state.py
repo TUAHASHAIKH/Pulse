@@ -1,7 +1,7 @@
 from typing import TypedDict, List
 import operator
 from typing_extensions import Annotated
-from app.models.agent_models import AgentResult
+from app.models.agent_models import AgentResult, RepairResult
 
 class ReviewState(TypedDict):
     """
@@ -13,3 +13,6 @@ class ReviewState(TypedDict):
     results: Annotated[List[AgentResult], operator.add]
     # List of agent nodes that the Architect decides to route to
     active_agents: List[str]
+    # Repair results from the Repair Agent (Phase 4)
+    repair_results: Annotated[List[RepairResult], operator.add]
+

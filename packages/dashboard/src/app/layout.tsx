@@ -19,7 +19,7 @@ const pressStart = Press_Start_2P({
 });
 
 export const metadata: Metadata = {
-  title: "Pulse — AI Command Center",
+  title: "Pulse",
   description:
     "Real-time autonomous multi-agent DevOps command center. Monitor AI agents reviewing, repairing, and protecting your code.",
 };

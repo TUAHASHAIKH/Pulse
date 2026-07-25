@@ -32,6 +32,21 @@ export interface AgentResult {
   error?: string;
 }
 
+export interface RepairResult {
+  finding_index: number;
+  finding_title: string;
+  finding_file: string;
+  patch: string;
+  explanation: string;
+  test_output: string;
+  tests_passed: boolean;
+  attempts_taken: number;
+  status: "pending" | "running" | "succeeded" | "failed";
+  confidence: number;
+  duration_seconds: number;
+  error?: string;
+}
+
 export interface PulseEvent {
   id: string;
   timestamp: number;
@@ -40,7 +55,11 @@ export interface PulseEvent {
     | "review_started"
     | "agent_started"
     | "agent_completed"
-    | "review_completed";
+    | "review_completed"
+    | "repair_started"
+    | "repair_attempt"
+    | "repair_succeeded"
+    | "repair_failed";
   payload: Record<string, any>;
 }
 
@@ -111,6 +130,10 @@ export function usePulseSocket() {
     socketInstance.on("agent_started", (data) => addEvent("agent_started", data));
     socketInstance.on("agent_completed", (data) => addEvent("agent_completed", data));
     socketInstance.on("review_completed", (data) => addEvent("review_completed", data));
+    socketInstance.on("repair_started", (data) => addEvent("repair_started", data));
+    socketInstance.on("repair_attempt", (data) => addEvent("repair_attempt", data));
+    socketInstance.on("repair_succeeded", (data) => addEvent("repair_succeeded", data));
+    socketInstance.on("repair_failed", (data) => addEvent("repair_failed", data));
 
     setSocket(socketInstance);
 
@@ -228,6 +251,20 @@ export function usePulseSocket() {
     };
   }, [events]);
 
+  /* ─── Derived: Latest Repair Results ─── */
+  const latestRepairs = useMemo((): RepairResult[] => {
+    const completedReview = events.find((e) => e.type === "review_completed");
+    if (!completedReview?.payload.repair_results) return [];
+
+    return completedReview.payload.repair_results as RepairResult[];
+  }, [events]);
+
+  /* ─── Derived: Current Review ID ─── */
+  const currentReviewId = useMemo((): string => {
+    const reviewStarted = events.find((e) => e.type === "review_started");
+    return reviewStarted?.payload.review_id || "";
+  }, [events]);
+
   return {
     socket,
     isConnected,
@@ -235,7 +272,9 @@ export function usePulseSocket() {
     clearEvents,
     agentStates,
     currentReview,
+    currentReviewId,
     latestFindings,
+    latestRepairs,
     metrics,
   };
 }

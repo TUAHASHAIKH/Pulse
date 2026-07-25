@@ -24,3 +24,6 @@ openai>=1.82.0
 # ─── Testing ───
 pytest==8.3.5
 pytest-asyncio==1.0.0
+
+# ─── Docker Sandbox (Phase 4) ───
+docker>=7.0.0

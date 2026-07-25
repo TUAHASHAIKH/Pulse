@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   CheckCircle,
   Inbox,
+  Wrench,
 } from "lucide-react";
 import type { PulseEvent } from "../../lib/socket";
 import { getAgentConfig } from "../../lib/agents";
@@ -43,6 +44,26 @@ const EVENT_CONFIG: Record<
     label: "COMPLETE",
     colorVar: "var(--nx-emerald)",
   },
+  repair_started: {
+    icon: <Wrench size={14} />,
+    label: "REPAIR",
+    colorVar: "var(--nx-orange)",
+  },
+  repair_attempt: {
+    icon: <Wrench size={14} />,
+    label: "REPAIR",
+    colorVar: "var(--nx-orange)",
+  },
+  repair_succeeded: {
+    icon: <CheckCircle size={14} />,
+    label: "FIXED",
+    colorVar: "var(--nx-emerald)",
+  },
+  repair_failed: {
+    icon: <AlertTriangle size={14} />,
+    label: "FAILED",
+    colorVar: "var(--nx-red)",
+  },
 };
 
 function TimelineNode({ event }: { event: PulseEvent }) {
@@ -74,6 +95,14 @@ function TimelineNode({ event }: { event: PulseEvent }) {
         return `${event.payload.findings_count || 0} findings · ${event.payload.duration?.toFixed(1) || "0"}s`;
       case "review_completed":
         return `${event.payload.total_findings || 0} total findings`;
+      case "repair_started":
+        return `Starting repair for '${event.payload.finding_title}' in ${event.payload.finding_file}`;
+      case "repair_attempt":
+        return `Repair attempt ${event.payload.attempt}/${event.payload.max_attempts} — ${event.payload.status}`;
+      case "repair_succeeded":
+        return `Repair succeeded on attempt ${event.payload.attempt} for '${event.payload.finding_title}'`;
+      case "repair_failed":
+        return `Repair failed after ${event.payload.attempts} attempts for '${event.payload.finding_title}'`;
       default:
         return "";
     }

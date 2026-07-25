@@ -38,6 +38,16 @@ from app.utils.logger import setup_logger
 
 logger = setup_logger("pulse.review")
 
+# In-memory store of completed reviews — keyed by review_id.
+# Used by the fix application endpoints to look up patches.
+# In a production system, this would be a database.
+_review_store: dict[str, dict] = {}
+
+
+def get_review(review_id: str) -> dict | None:
+    """Look up a completed review by ID."""
+    return _review_store.get(review_id)
+
 
 async def run_review(request: ReviewRequest) -> ReviewAPIResponse:
     """
@@ -98,16 +108,18 @@ async def run_review(request: ReviewRequest) -> ReviewAPIResponse:
                     "Provide either a 'diff' string or 'repo' + 'pr_number'.",
         )
 
-    # ── Step 2: Run all agents in parallel via LangGraph ──
+    # ── Step 2: Run all agents (+ repair) via LangGraph ──
     logger.info(f"Review {review_id}: launching LangGraph multi-agent orchestration...")
     
     final_state = await review_graph.ainvoke({
         "diff": diff,
         "changed_files": changed_files,
-        "results": []
+        "results": [],
+        "repair_results": [],
     })
     
     results = final_state.get("results", [])
+    repair_results = final_state.get("repair_results", [])
 
     # ── Step 3: Post PR comment (only for GitHub PRs) ──
     posted_comment = False
@@ -117,7 +129,7 @@ async def run_review(request: ReviewRequest) -> ReviewAPIResponse:
         and request.pr_number
     ):
         try:
-            comment_body = format_as_github_comment(results)
+            comment_body = format_as_github_comment(results, repair_results)
             await github_client.post_pr_comment(
                 request.repo, request.pr_number, comment_body
             )
@@ -131,16 +143,21 @@ async def run_review(request: ReviewRequest) -> ReviewAPIResponse:
 
     # ── Step 4: Emit completion event ──
     total_findings = sum(len(r.findings) for r in results)
+    total_repairs = sum(1 for r in repair_results if r.status.value == "succeeded")
     await emit_event("review_completed", {
         "review_id": review_id,
         "source": request.source.value,
         "total_findings": total_findings,
+        "total_repairs": total_repairs,
         "posted_comment": posted_comment,
         "results": [r.model_dump() for r in results],
+        "repair_results": [r.model_dump() for r in repair_results],
     })
 
     # ── Build summary message ──
     finding_summary = f"{total_findings} total issue(s) found across {len(results)} agents"
+    if total_repairs:
+        finding_summary += f", {total_repairs} fix(es) available"
     if posted_comment:
         message = f"{finding_summary}. Comment posted on PR."
     else:
@@ -148,10 +165,18 @@ async def run_review(request: ReviewRequest) -> ReviewAPIResponse:
 
     logger.info(f"Review {review_id} completed: {message}")
 
+    # Store results globally for fix application later
+    _review_store[review_id] = {
+        "results": results,
+        "repair_results": repair_results,
+        "request": request,
+    }
+
     return ReviewAPIResponse(
         status="completed",
         review_id=review_id,
         results=results,
+        repair_results=repair_results,
         posted_comment=posted_comment,
         message=message,
     )

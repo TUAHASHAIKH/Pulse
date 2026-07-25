@@ -6,23 +6,29 @@ import {
   BarChart3,
   ScrollText,
   ShieldAlert,
+  Wrench,
+  Settings as SettingsIcon,
 } from "lucide-react";
 import { CommandBar } from "../components/CommandBar/CommandBar";
 import { NeuralGraph } from "../components/NeuralGraph/NeuralGraph";
 import { Timeline } from "../components/Timeline/Timeline";
 import { MetricsPanel } from "../components/Metrics/MetricsPanel";
 import { FindingsPanel } from "../components/Findings/FindingsPanel";
+import { RepairPanel } from "../components/RepairPanel/RepairPanel";
+import { SettingsPanel } from "../components/Settings/SettingsPanel";
 import { Scanline } from "../components/shared/Scanline";
 import { usePulseSocket } from "../lib/socket";
 import styles from "./page.module.css";
 
-type Section = "network" | "metrics" | "timeline" | "findings";
+type Section = "network" | "metrics" | "timeline" | "findings" | "repairs" | "settings";
 
 const NAV_ITEMS: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: "network", label: "NETWORK", icon: <Network size={22} /> },
   { id: "timeline", label: "LOG", icon: <ScrollText size={22} /> },
   { id: "metrics", label: "METRICS", icon: <BarChart3 size={22} /> },
   { id: "findings", label: "FINDINGS", icon: <ShieldAlert size={22} /> },
+  { id: "repairs", label: "REPAIRS", icon: <Wrench size={22} /> },
+  { id: "settings", label: "SETTINGS", icon: <SettingsIcon size={22} /> },
 ];
 
 export default function Dashboard() {
@@ -33,7 +39,9 @@ export default function Dashboard() {
     events,
     agentStates,
     currentReview,
+    currentReviewId,
     latestFindings,
+    latestRepairs,
     metrics,
   } = usePulseSocket();
 
@@ -90,6 +98,12 @@ export default function Dashboard() {
           {activeSection === "findings" && (
             <FindingsPanel findings={latestFindings} />
           )}
+
+          {activeSection === "repairs" && (
+            <RepairPanel repairs={latestRepairs} reviewId={currentReviewId} />
+          )}
+
+          {activeSection === "settings" && <SettingsPanel />}
         </main>
 
         {/* ─── Right Sidebar Nav ─── */}

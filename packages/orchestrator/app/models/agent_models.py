@@ -198,6 +198,84 @@ class AgentResult(BaseModel):
         return counts
 
 
+# ─── Repair Agent Models (Phase 4) ───
+
+
+class RepairStatus(str, Enum):
+    """Current status of a repair attempt."""
+    PENDING = "pending"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+
+
+class FixDeliveryMethod(str, Enum):
+    """How a verified fix should be delivered to the user."""
+    ASK = "ask"              # Show buttons in dashboard (default)
+    LOCAL = "local"          # Apply to local filesystem via git apply
+    PR_COMMENT = "pr_comment"  # Post as a PR comment on GitHub
+    BRANCH = "branch"        # Commit to a new pulse/fix-{id} branch
+
+
+class RepairResult(BaseModel):
+    """
+    Result of a single repair attempt for a critical finding.
+
+    Includes the patch, test output, and metadata about the repair process.
+    The patch is in unified diff format and can be applied via git apply.
+    """
+    finding_index: int = Field(
+        ...,
+        description="Index of the finding in the agent's results that this repair targets"
+    )
+    finding_title: str = Field(
+        default="",
+        description="Title of the finding being repaired (for display)"
+    )
+    finding_file: str = Field(
+        default="",
+        description="File path of the finding being repaired"
+    )
+    patch: str = Field(
+        default="",
+        description="Unified diff patch that fixes the issue"
+    )
+    explanation: str = Field(
+        default="",
+        description="Human-readable explanation of what the fix does"
+    )
+    test_output: str = Field(
+        default="",
+        description="stdout/stderr from running tests after applying the patch"
+    )
+    tests_passed: bool = Field(
+        default=False,
+        description="Whether the test suite passed after applying the patch"
+    )
+    attempts_taken: int = Field(
+        default=0,
+        description="Number of attempts it took (1-3)"
+    )
+    status: RepairStatus = Field(
+        default=RepairStatus.PENDING,
+        description="Current status of this repair"
+    )
+    confidence: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="LLM's confidence in the fix"
+    )
+    duration_seconds: float = Field(
+        default=0.0,
+        description="Total time spent on all attempts"
+    )
+    error: Optional[str] = Field(
+        default=None,
+        description="Error message if the repair failed"
+    )
+
+
 # ─── API Request/Response Models ───
 
 
@@ -231,5 +309,42 @@ class ReviewAPIResponse(BaseModel):
     status: str = "completed"
     review_id: str = ""
     results: list[AgentResult] = Field(default_factory=list)
+    repair_results: list[RepairResult] = Field(default_factory=list)
     posted_comment: bool = False
     message: str = ""
+
+
+class FixApplicationRequest(BaseModel):
+    """Request to apply a verified fix via one of the delivery methods."""
+    review_id: str = Field(
+        ...,
+        description="The review that produced this fix"
+    )
+    finding_index: int = Field(
+        ...,
+        description="Index of the finding/repair to apply"
+    )
+    method: FixDeliveryMethod = Field(
+        default=FixDeliveryMethod.LOCAL,
+        description="How to deliver the fix"
+    )
+    # GitHub-specific (needed for pr_comment and branch methods)
+    repo: Optional[str] = Field(
+        default=None,
+        description="GitHub repo full name (for PR comment / branch)"
+    )
+    pr_number: Optional[int] = Field(
+        default=None,
+        description="GitHub PR number (for PR comment / branch)"
+    )
+
+
+class FixApplicationResponse(BaseModel):
+    """Response after applying a fix."""
+    success: bool = False
+    method: str = ""
+    message: str = ""
+    # Method-specific details
+    files_changed: list[str] = Field(default_factory=list)
+    branch_name: Optional[str] = None
+    comment_url: Optional[str] = None
