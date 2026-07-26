@@ -97,6 +97,7 @@ export function spawnDashboard(opts: SpawnOptions): ChildProcess {
       cwd: opts.dashboardDir,
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env },
+      shell: process.platform === "win32",
     });
   }
 

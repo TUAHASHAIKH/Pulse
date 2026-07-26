@@ -41,12 +41,12 @@ function run(cmd: string, cwd: string) {
 
 // ─── 1. Build the Dashboard (if needed) ───
 
-const nextDir = join(DASHBOARD_ROOT, ".next");
-if (!existsSync(nextDir)) {
-  log("Building dashboard...");
+const standaloneDir = join(DASHBOARD_ROOT, ".next", "standalone");
+if (!existsSync(standaloneDir)) {
+  log("Building standalone dashboard...");
   run("npm run build", DASHBOARD_ROOT);
 } else {
-  log("Dashboard build (.next) found — skipping rebuild");
+  log("Dashboard standalone build found — skipping rebuild");
 }
 
 // ─── 2. Copy Orchestrator Into CLI Package ───
