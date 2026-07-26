@@ -28,7 +28,7 @@ export async function reviewCommand(options: {
   const orchestratorPort = options.port || 8000;
   const baseUrl = `http://localhost:${orchestratorPort}`;
 
-  printBanner("0.1.0");
+  printBanner();
 
   // 1. Check that the orchestrator is running
   const healthSpinner = createSpinner("Connecting to orchestrator...");

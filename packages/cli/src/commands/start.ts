@@ -87,7 +87,7 @@ export async function startCommand(options: {
   const dashboardPort = options.dashboardPort || 3000;
   const projectRoot = process.cwd();
 
-  printBanner("0.1.0");
+  printBanner();
 
   // 1. Check prerequisites
   const checks = await runAllChecks(projectRoot, orchestratorPort, dashboardPort);

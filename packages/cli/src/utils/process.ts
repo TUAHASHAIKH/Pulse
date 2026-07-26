@@ -73,16 +73,34 @@ export function spawnOrchestrator(opts: SpawnOptions): ChildProcess {
  * Start the pre-built Next.js dashboard in standalone mode.
  */
 export function spawnDashboard(opts: SpawnOptions): ChildProcess {
-  const serverPath = join(opts.dashboardDir, ".next", "standalone", "server.js");
+  const standaloneRootServer = join(opts.dashboardDir, "server.js");
+  const standaloneNextServer = join(opts.dashboardDir, ".next", "standalone", "server.js");
+  const standaloneMonorepoServer = join(
+    opts.dashboardDir,
+    ".next",
+    "standalone",
+    "packages",
+    "dashboard",
+    "server.js"
+  );
 
-  // Fallback: if standalone build doesn't exist, use `next start`
-  const useStandalone = existsSync(serverPath);
+  let serverPath: string | null = null;
+  if (existsSync(standaloneRootServer)) {
+    serverPath = standaloneRootServer;
+  } else if (existsSync(standaloneNextServer)) {
+    serverPath = standaloneNextServer;
+  } else if (existsSync(standaloneMonorepoServer)) {
+    serverPath = standaloneMonorepoServer;
+  }
+
+  const useStandalone = Boolean(serverPath);
 
   let child: ChildProcess;
 
-  if (useStandalone) {
+  if (useStandalone && serverPath) {
+    const cwdDir = dirname(serverPath);
     child = spawn("node", [serverPath], {
-      cwd: opts.dashboardDir,
+      cwd: cwdDir,
       stdio: ["ignore", "pipe", "pipe"],
       env: {
         ...process.env,

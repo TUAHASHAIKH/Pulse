@@ -21,6 +21,7 @@ import { initCommand } from "./commands/init.js";
 import { reviewCommand } from "./commands/review.js";
 import { stopCommand } from "./commands/stop.js";
 import { statusCommand } from "./commands/status.js";
+import { getCliVersion } from "./utils/version.js";
 
 const program = new Command();
 
@@ -30,7 +31,7 @@ program
     "🫀 Pulse — AI-powered code review from your terminal.\n" +
     "Security, performance, and quality agents on every PR."
   )
-  .version("0.1.0");
+  .version(getCliVersion());
 
 // ─── pulse start ───
 

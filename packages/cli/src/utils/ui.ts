@@ -10,6 +10,8 @@ import ora, { type Ora } from "ora";
 import { Readable } from "node:stream";
 import { createInterface } from "node:readline";
 
+import { getCliVersion } from "./version.js";
+
 // ─── Brand Colors ───
 
 const CYAN = chalk.hex("#00F0FF");
@@ -18,7 +20,7 @@ const BOLD = chalk.bold;
 
 // ─── Banner ───
 
-export function printBanner(version: string): void {
+export function printBanner(version: string = getCliVersion()): void {
   console.log();
   console.log(CYAN.bold("  🫀 Pulse") + DIM(` v${version}`));
   console.log(DIM("  ─────────────────────────────────────"));

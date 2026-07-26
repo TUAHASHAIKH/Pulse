@@ -94,12 +94,20 @@ if (existsSync(dashDest)) {
 mkdirSync(dashDest, { recursive: true });
 
 const standaloneSrc = join(DASHBOARD_ROOT, ".next", "standalone");
+const monorepoPkgSrc = join(standaloneSrc, "packages", "dashboard");
 const staticSrc = join(DASHBOARD_ROOT, ".next", "static");
 const publicSrc = join(DASHBOARD_ROOT, "public");
 
-if (existsSync(standaloneSrc)) {
-  // Copy standalone server
-  cpSync(standaloneSrc, dashDest, { recursive: true });
+if (existsSync(monorepoPkgSrc) || existsSync(standaloneSrc)) {
+  const sourceDir = existsSync(monorepoPkgSrc) ? monorepoPkgSrc : standaloneSrc;
+  // Copy standalone server and its .next folder
+  cpSync(sourceDir, dashDest, { recursive: true });
+
+  // Copy standalone node_modules
+  const standaloneNodeModules = join(standaloneSrc, "node_modules");
+  if (existsSync(standaloneNodeModules)) {
+    cpSync(standaloneNodeModules, join(dashDest, "node_modules"), { recursive: true });
+  }
 
   // Copy static assets (Next.js requires these alongside standalone)
   if (existsSync(staticSrc)) {

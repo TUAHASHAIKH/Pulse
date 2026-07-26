@@ -23,7 +23,7 @@ import {
 export async function stopCommand(): Promise<void> {
   const projectRoot = process.cwd();
 
-  printBanner("0.1.0");
+  printBanner();
 
   // 1. Read PID file
   const pidInfo = await readPidFile(projectRoot);

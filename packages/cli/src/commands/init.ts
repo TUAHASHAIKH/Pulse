@@ -19,7 +19,7 @@ export async function initCommand(options: { force?: boolean }): Promise<void> {
   const pulseDir = join(projectRoot, ".pulse");
   const configPath = join(pulseDir, "config.json");
 
-  printBanner("0.1.0");
+  printBanner();
 
   // Check if config already exists
   if (existsSync(configPath) && !options.force) {
