@@ -1,13 +1,49 @@
 {
-  "name": "@pulse/cli",
+  "name": "pulse-agent",
   "version": "0.1.0",
-  "description": "Pulse CLI — start the orchestrator and trigger reviews",
-  "private": true,
+  "description": "AI-powered code review from your terminal — security, performance, and quality agents on every PR",
   "bin": {
     "pulse": "./dist/index.js"
   },
+  "type": "module",
   "scripts": {
     "build": "tsc",
-    "dev": "ts-node src/index.ts"
+    "dev": "tsx src/index.ts",
+    "prepare-bundle": "tsx scripts/prepare.ts",
+    "prepublishOnly": "npm run prepare-bundle"
+  },
+  "dependencies": {
+    "commander": "^13.0.0",
+    "@inquirer/prompts": "^7.0.0",
+    "chalk": "^5.4.0",
+    "ora": "^8.2.0",
+    "tree-kill": "^1.2.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.0",
+    "@types/node": "^22.0.0"
+  },
+  "files": [
+    "dist/",
+    "orchestrator/",
+    "dashboard/"
+  ],
+  "keywords": [
+    "code-review",
+    "ai",
+    "devops",
+    "security",
+    "langgraph",
+    "pulse"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/pulse.git",
+    "directory": "packages/cli"
   }
 }

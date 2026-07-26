@@ -44,3 +44,8 @@ docker-compose.override.yml
 
 # Docs (binary files — use markdown instead)
 *.docx
+
+# CLI bundled packages (for npm publish only)
+packages/cli/dashboard/
+packages/cli/orchestrator/
+packages/cli/dist/

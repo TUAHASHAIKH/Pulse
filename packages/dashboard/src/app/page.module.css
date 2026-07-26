@@ -24,14 +24,14 @@
   overflow-y: auto;
 }
 
-/* ─── Right Sidebar Nav ─── */
+/* ─── Left Sidebar Nav ─── */
 .nav {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--sp-3);
   padding: var(--sp-5) var(--sp-3);
-  border-left: 1px solid var(--nx-border);
+  border-right: 1px solid var(--nx-border);
   flex-shrink: 0;
   width: 80px;
 }
@@ -109,7 +109,7 @@
     flex-direction: row;
     justify-content: center;
     width: auto;
-    border-left: none;
+    border-right: none;
     border-top: 1px solid var(--nx-border);
     padding: var(--sp-2) var(--sp-4);
     gap: var(--sp-3);

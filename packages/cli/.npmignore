@@ -1,0 +1,13 @@
+# Ignore development source files
+src/
+scripts/
+tsconfig.json
+*.map
+
+# Ignore dependencies and caches inside bundled packages
+node_modules/
+__pycache__/
+*.py[cod]
+.venv/
+*.log
+.DS_Store

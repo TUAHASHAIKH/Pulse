@@ -75,6 +75,23 @@ export default function Dashboard() {
       <CommandBar isConnected={isConnected} onSimulate={handleSimulate} />
 
       <div className={styles.shell}>
+        {/* ─── Left Sidebar Nav ─── */}
+        <nav className={styles.nav} aria-label="Dashboard sections">
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.id}
+              className={`${styles.navItem} ${activeSection === item.id ? styles.navItemActive : ""}`}
+              onClick={() => setActiveSection(item.id)}
+              onKeyDown={(e) => handleKeyNav(e, item.id)}
+              title={item.label}
+              aria-current={activeSection === item.id ? "page" : undefined}
+            >
+              <span className={styles.navIcon}>{item.icon}</span>
+              <span className={styles.navLabel}>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
         {/* ─── Workspace ─── */}
         <main className={styles.workspace}>
           {activeSection === "network" && (
@@ -105,23 +122,6 @@ export default function Dashboard() {
 
           {activeSection === "settings" && <SettingsPanel />}
         </main>
-
-        {/* ─── Right Sidebar Nav ─── */}
-        <nav className={styles.nav} aria-label="Dashboard sections">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              className={`${styles.navItem} ${activeSection === item.id ? styles.navItemActive : ""}`}
-              onClick={() => setActiveSection(item.id)}
-              onKeyDown={(e) => handleKeyNav(e, item.id)}
-              title={item.label}
-              aria-current={activeSection === item.id ? "page" : undefined}
-            >
-              <span className={styles.navIcon}>{item.icon}</span>
-              <span className={styles.navLabel}>{item.label}</span>
-            </button>
-          ))}
-        </nav>
       </div>
     </div>
   );

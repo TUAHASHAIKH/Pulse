@@ -10,6 +10,9 @@
   "scripts": {
     "dev:orchestrator": "cd packages/orchestrator && uvicorn app.main:app --reload --port 8000",
     "dev:dashboard": "cd packages/dashboard && npm run dev",
+    "dev:cli": "cd packages/cli && npm run dev",
+    "build:cli": "cd packages/cli && npm run build",
+    "build:dashboard": "cd packages/dashboard && npm run build",
     "test:orchestrator": "cd packages/orchestrator && python -m pytest tests/ -v"
   },
   "repository": {
