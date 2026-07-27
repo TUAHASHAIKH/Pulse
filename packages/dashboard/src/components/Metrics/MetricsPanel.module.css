@@ -3,35 +3,117 @@
 .container {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-8);
-  padding: var(--sp-4) 0;
+  gap: var(--sp-6);
+  padding: var(--sp-4) var(--sp-2);
   height: 100%;
+  overflow-y: auto;
 }
 
-.label {
-  margin-bottom: var(--sp-1);
+/* ─── Header ─── */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--nx-border);
 }
 
-.labelText {
+.titleGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.title {
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--nx-text);
+  text-transform: uppercase;
+}
+
+.subtitle {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--nx-text-dim);
+}
+
+.liveBadge {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 4px 10px;
+  background: rgba(0, 240, 255, 0.08);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  letter-spacing: 1px;
+  color: var(--nx-cyan);
+}
+
+.liveDot {
+  width: 6px;
+  height: 6px;
+  background: var(--nx-cyan);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--nx-cyan);
+  animation: pulseGlow 2s infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+/* ─── Section Header ─── */
+.sectionTitle {
   font-family: var(--font-pixel);
   font-size: 8px;
   letter-spacing: 1.5px;
   color: var(--nx-text-dim);
   text-transform: uppercase;
+  margin-bottom: var(--sp-2);
 }
 
-/* ─── Gauges ─── */
-.gauges {
+/* ─── Top Gauges Grid (4 Columns) ─── */
+.gaugesGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-4);
+}
+
+@media (max-width: 1024px) {
+  .gaugesGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.gaugeCard {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: var(--sp-12);
+  padding: var(--sp-5) var(--sp-3);
+  background: rgba(13, 17, 23, 0.65);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--radius-md);
+  position: relative;
+  overflow: hidden;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.gaugeCard:hover {
+  border-color: var(--nx-border-active);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 .gauge {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--sp-3);
+  gap: var(--sp-2);
   position: relative;
 }
 
@@ -44,67 +126,322 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 80px;
+  height: 90px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
 }
 
 .gaugeValue {
   font-family: var(--font-mono);
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 22px;
+  font-weight: 700;
   color: var(--nx-text);
+}
+
+.gaugeSubtext {
+  font-family: var(--font-pixel);
+  font-size: 6px;
+  color: var(--nx-text-dim);
+  letter-spacing: 0.5px;
+  margin-top: 2px;
 }
 
 .gaugeLabel {
   font-family: var(--font-pixel);
-  font-size: 7px;
+  font-size: 8px;
   letter-spacing: 1.5px;
   color: var(--nx-text-dim);
+  margin-top: var(--sp-1);
 }
 
-/* ─── Stats ─── */
-.stats {
-  display: flex;
+/* ─── Second Grid — Stat Cards (4 Columns) ─── */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--sp-4);
-  justify-content: center;
 }
 
-.stat {
+@media (max-width: 1024px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.statCard {
   display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  padding: var(--sp-3) var(--sp-4);
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  background: rgba(13, 17, 23, 0.65);
   border: 1px solid var(--nx-border);
-  border-radius: var(--radius-sm);
-  transition: border-color var(--duration-fast) var(--ease-out);
+  border-radius: var(--radius-md);
+  position: relative;
+  overflow: hidden;
+  transition: all var(--duration-fast) var(--ease-out);
 }
 
-.stat:hover {
+.statCard:hover {
   border-color: var(--nx-border-active);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+.statTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .statLabel {
   font-family: var(--font-pixel);
   font-size: 7px;
-  letter-spacing: 1px;
+  letter-spacing: 1.2px;
   color: var(--nx-text-dim);
-  min-width: 64px;
+}
+
+.statBadge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.statMain {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
 }
 
 .statValue {
   font-family: var(--font-mono);
-  font-size: 16px;
+  font-size: 24px;
+  font-weight: 700;
   color: var(--nx-text);
-  flex: 1;
-  text-align: right;
 }
 
-.statBar {
-  width: 3px;
-  height: 20px;
-  border-radius: 1px;
-  flex-shrink: 0;
-  transition: opacity var(--duration-normal) var(--ease-out);
+.statSubtext {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--nx-text-dim);
+}
+
+.statGlowBar {
+  height: 3px;
+  width: 100%;
+  border-radius: 2px;
+  opacity: 0.6;
+  margin-top: var(--sp-1);
+}
+
+/* ─── Third Row — Two Equal Panels (Workload & Health) ─── */
+.splitGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-4);
+}
+
+@media (max-width: 900px) {
+  .splitGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panelCard {
+  display: flex;
+  flex-direction: column;
+  background: rgba(13, 17, 23, 0.65);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-5);
+  gap: var(--sp-4);
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--nx-border);
+  padding-bottom: var(--sp-3);
+}
+
+.panelTitle {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  color: var(--nx-text);
+  text-transform: uppercase;
+}
+
+.panelSubtitle {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--nx-text-dim);
+}
+
+/* Workload Bars */
+.workloadList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.workloadItem {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.workloadHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.agentName {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--nx-text);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.agentPercent {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.progressBarTrack {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progressBarFill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* System Health Rows */
+.healthList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.healthRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-sm);
+}
+
+.healthLabel {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--nx-text);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.healthValue {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.statusOnline {
+  color: #00FF66;
+  background: rgba(0, 255, 102, 0.1);
+  border: 1px solid rgba(0, 255, 102, 0.25);
+}
+
+.statusActive {
+  color: var(--nx-cyan);
+  background: rgba(0, 240, 255, 0.1);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+}
+
+.statusNormal {
+  color: var(--nx-purple);
+  background: rgba(176, 38, 255, 0.1);
+  border: 1px solid rgba(176, 38, 255, 0.25);
+}
+
+/* ─── Bottom Row — Recent Metric Insights Feed ─── */
+.insightsPanel {
+  display: flex;
+  flex-direction: column;
+  background: rgba(13, 17, 23, 0.65);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-5);
+  gap: var(--sp-3);
+}
+
+.insightsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.insightRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.insightRow:hover {
+  border-color: var(--nx-border-active);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.insightLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.insightTime {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--nx-text-dim);
+}
+
+.insightTag {
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 1px;
+}
+
+.insightText {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--nx-text);
+}
+
+.insightImpact {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
 }

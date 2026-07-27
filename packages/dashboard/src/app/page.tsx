@@ -109,6 +109,7 @@ export default function Dashboard() {
               totalFindings={metrics.totalFindings}
               criticalCount={metrics.criticalCount}
               totalTokens={metrics.totalTokens}
+              latestFindings={latestFindings}
             />
           )}
 
