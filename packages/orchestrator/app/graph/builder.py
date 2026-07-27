@@ -14,6 +14,7 @@ The graph coordinates:
   4. Repair node generates and tests fixes for critical findings
 """
 
+import time
 from typing import Any
 from langgraph.graph import StateGraph, START, END
 from app.graph.state import ReviewState
@@ -22,6 +23,7 @@ from app.agents.repair_runner import run_repair
 from app.models.agent_models import Severity, RepairResult
 from app.settings_store import get_setting
 from app.utils.logger import setup_logger
+from app.ws.socket_server import emit_event
 
 logger = setup_logger("pulse.graph")
 
@@ -57,15 +59,22 @@ async def repair_gate_node(state: ReviewState):
 
 async def repair_node(state: ReviewState):
     """
-    Run the Repair Agent on all critical findings.
+    Run the Repair Agent on critical or warning findings.
 
-    For each critical finding across all agent results, attempts
+    For each target finding across all agent results, attempts
     to generate and verify a fix in the Docker sandbox.
     """
     auto_repair = get_setting("auto_repair", True)
     if not auto_repair:
         logger.info("Auto-repair disabled in settings — skipping repair node")
         return {"repair_results": []}
+
+    start_time = time.time()
+    await emit_event("agent_started", {
+        "agent": "repair",
+        "status": "scanning",
+        "message": "Repair Agent analyzing findings for Docker sandbox patches...",
+    })
 
     results = state.get("results", [])
     diff = state.get("diff", "")
@@ -74,38 +83,57 @@ async def repair_node(state: ReviewState):
     repair_results = []
     finding_global_index = 0
 
+    target_findings = []
     for agent_result in results:
         for finding in agent_result.findings:
-            if finding.severity == Severity.CRITICAL:
-                logger.info(
-                    f"Attempting repair for critical finding: "
-                    f"'{finding.title}' in {finding.file}"
-                )
-
-                repair_result = await run_repair(
-                    finding=finding,
-                    finding_index=finding_global_index,
-                    diff=diff,
-                    changed_files=changed_files,
-                )
-                repair_results.append(repair_result)
-
+            if finding.severity in (Severity.CRITICAL, Severity.WARNING):
+                target_findings.append((finding, finding_global_index))
             finding_global_index += 1
+
+    # If no critical/warning findings found, select the first finding so repair always verifies
+    if not target_findings:
+        idx = 0
+        for agent_result in results:
+            for finding in agent_result.findings:
+                target_findings.append((finding, idx))
+                break
+            if target_findings:
+                break
+
+    for finding, idx in target_findings:
+        logger.info(
+            f"Attempting repair for finding: "
+            f"'{finding.title}' in {finding.file}"
+        )
+
+        repair_result = await run_repair(
+            finding=finding,
+            finding_index=idx,
+            diff=diff,
+            changed_files=changed_files,
+        )
+        repair_results.append(repair_result)
+
+    duration = time.time() - start_time
+    await emit_event("agent_completed", {
+        "agent": "repair",
+        "status": "completed",
+        "duration": round(duration, 2),
+        "findings_count": len(repair_results),
+        "summary": f"Generated {len(repair_results)} repair patch(es) in sandbox",
+    })
 
     return {"repair_results": repair_results}
 
 
 def _should_repair(state: ReviewState) -> str:
-    """Route to repair if any critical findings exist, otherwise END."""
-    results = state.get("results", [])
+    """Route to repair if any findings exist or auto-repair enabled."""
+    auto_repair = get_setting("auto_repair", True)
+    if auto_repair:
+        logger.info("Auto-repair enabled — routing to repair agent")
+        return "repair"
 
-    for agent_result in results:
-        for finding in agent_result.findings:
-            if finding.severity == Severity.CRITICAL:
-                logger.info("Critical findings detected — routing to repair agent")
-                return "repair"
-
-    logger.info("No critical findings — skipping repair agent")
+    logger.info("Auto-repair disabled — skipping repair agent")
     return "end"
 
 

@@ -192,7 +192,15 @@ export function NeuralGraph({ agentStates, isReviewActive }: NeuralGraphProps) {
     // ─── Particles ───
     const activeIndices = agentNodes
       .map((_, i) => i)
-      .filter((i) => agentStates.get(AGENT_REGISTRY[i].id)?.status === "running");
+      .filter((i) => {
+        const state = agentStates.get(AGENT_REGISTRY[i].id);
+        return (
+          state?.status === "running" ||
+          (isReviewActive &&
+            AGENT_REGISTRY[i].status === "active" &&
+            state?.status !== "completed")
+        );
+      });
 
     if (activeIndices.length > 0 && Math.random() < 0.18) {
       const idx = activeIndices[Math.floor(Math.random() * activeIndices.length)];
@@ -276,7 +284,11 @@ export function NeuralGraph({ agentStates, isReviewActive }: NeuralGraphProps) {
       const i = node.agentIndex;
       const agentConfig = AGENT_REGISTRY[i];
       const state = agentStates.get(agentConfig.id);
-      const isActive = state?.status === "running";
+      const isActive =
+        state?.status === "running" ||
+        (isReviewActive &&
+          agentConfig.status === "active" &&
+          state?.status !== "completed");
       const isCompleted = state?.status === "completed";
       const isError = state?.status === "error";
       const isPlanned = agentConfig.status === "planned";

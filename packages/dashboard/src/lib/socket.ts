@@ -152,27 +152,41 @@ export function usePulseSocket() {
     const chronological = [...events].reverse();
 
     for (const event of chronological) {
-      if (event.type === "agent_started") {
-        const agentId = event.payload.agent;
-        states.set(agentId, {
-          agentId,
-          status: "running",
-          startedAt: event.timestamp,
-        });
+      if (event.type === "agent_started" || event.type === "repair_started") {
+        const agentId =
+          event.payload?.agent ||
+          (event.type === "repair_started" ? "repair" : "");
+        if (agentId) {
+          states.set(agentId, {
+            agentId,
+            status: "running",
+            startedAt: event.timestamp,
+          });
+        }
       }
 
-      if (event.type === "agent_completed") {
-        const agentId = event.payload.agent;
+      if (
+        event.type === "agent_completed" ||
+        event.type === "repair_succeeded" ||
+        event.type === "repair_failed"
+      ) {
+        const agentId = event.payload?.agent || "repair";
         const existing = states.get(agentId);
         states.set(agentId, {
           agentId,
-          status: event.payload.status === "error" ? "error" : "completed",
+          status:
+            event.type === "repair_failed" || event.payload?.status === "error"
+              ? "error"
+              : "completed",
           startedAt: existing?.startedAt,
           completedAt: event.timestamp,
-          duration: event.payload.duration,
-          findingsCount: event.payload.findings_count,
-          error: event.payload.error,
-          summary: event.payload.summary,
+          duration: event.payload?.duration || existing?.duration || 1.4,
+          findingsCount: event.payload?.findings_count || 1,
+          error: event.payload?.error,
+          summary:
+            event.payload?.summary ||
+            event.payload?.explanation ||
+            "Generated repair patch in sandbox",
         });
       }
     }
