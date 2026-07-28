@@ -31,11 +31,9 @@ from app.models.agent_models import (
 )
 from app.ws.socket_server import emit_event
 from app.utils.logger import setup_logger
+from app.utils.prompts import get_prompt_path
 
 logger = setup_logger("pulse.agent.security")
-
-# Path to the versioned system prompt
-PROMPT_PATH = Path(__file__).resolve().parents[4] / "docs" / "agent-prompts" / "security_agent.md"
 
 AGENT_NAME = "security"
 
@@ -43,17 +41,15 @@ AGENT_NAME = "security"
 def _load_system_prompt() -> str:
     """
     Load the security agent's system prompt from the versioned file.
-
-    The prompt lives in docs/agent-prompts/security_agent.md so it's
-    version-controlled and reviewable separately from code.
     """
-    if not PROMPT_PATH.exists():
+    prompt_path = get_prompt_path("security")
+    if not prompt_path.exists():
         raise FileNotFoundError(
-            f"Security agent prompt not found at {PROMPT_PATH}. "
-            f"Expected it in docs/agent-prompts/security_agent.md"
+            f"Security agent prompt not found at {prompt_path}. "
+            f"Expected it in app/prompts/security_agent.md or docs/agent-prompts/security_agent.md"
         )
 
-    with open(PROMPT_PATH, "r", encoding="utf-8") as f:
+    with open(prompt_path, "r", encoding="utf-8") as f:
         return f.read()
 
 

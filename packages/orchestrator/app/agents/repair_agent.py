@@ -31,24 +31,23 @@ from app.models.agent_models import (
 )
 from app.ws.socket_server import emit_event
 from app.utils.logger import setup_logger
+from app.utils.prompts import get_prompt_path
 
 logger = setup_logger("pulse.agent.repair")
-
-# Path to the versioned system prompt
-PROMPT_PATH = Path(__file__).resolve().parents[4] / "docs" / "agent-prompts" / "repair_agent.md"
 
 AGENT_NAME = "repair"
 
 
 def _load_system_prompt() -> str:
     """Load the repair agent's system prompt from the versioned file."""
-    if not PROMPT_PATH.exists():
+    prompt_path = get_prompt_path("repair")
+    if not prompt_path.exists():
         raise FileNotFoundError(
-            f"Repair agent prompt not found at {PROMPT_PATH}. "
-            f"Expected it in docs/agent-prompts/repair_agent.md"
+            f"Repair agent prompt not found at {prompt_path}. "
+            f"Expected it in app/prompts/repair_agent.md or docs/agent-prompts/repair_agent.md"
         )
 
-    with open(PROMPT_PATH, "r", encoding="utf-8") as f:
+    with open(prompt_path, "r", encoding="utf-8") as f:
         return f.read()
 
 

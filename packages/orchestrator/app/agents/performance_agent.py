@@ -15,22 +15,21 @@ from app.models.agent_models import (
 )
 from app.ws.socket_server import emit_event
 from app.utils.logger import setup_logger
+from app.utils.prompts import get_prompt_path
 
 logger = setup_logger("pulse.agent.performance")
-
-# Path to the versioned system prompt
-PROMPT_PATH = Path(__file__).resolve().parents[4] / "docs" / "agent-prompts" / "performance_agent.md"
 
 AGENT_NAME = "performance"
 
 
 def _load_system_prompt() -> str:
-    if not PROMPT_PATH.exists():
+    prompt_path = get_prompt_path("performance")
+    if not prompt_path.exists():
         raise FileNotFoundError(
-            f"Performance agent prompt not found at {PROMPT_PATH}. "
+            f"Performance agent prompt not found at {prompt_path}. "
         )
 
-    with open(PROMPT_PATH, "r", encoding="utf-8") as f:
+    with open(prompt_path, "r", encoding="utf-8") as f:
         return f.read()
 
 
