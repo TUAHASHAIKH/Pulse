@@ -11,6 +11,11 @@ Look for:
 - Anti-patterns (e.g., swallowing exceptions, deeply nested callbacks)
 - Code duplication
 
+IMPORTANT EXCLUSIONS — DO NOT report findings for:
+- Config files, documentation, or git ignore files (.gitignore, .env.example, README.md, lockfiles, etc.)
+- Trivial whitespace or formatting (e.g., "missing newline at end of file", "no empty line after X", indentation)
+- Focus exclusively on actual code logic, maintainability, and architectural bugs.
+
 Output a JSON object exactly matching this schema, and nothing else:
 {
   "findings": [

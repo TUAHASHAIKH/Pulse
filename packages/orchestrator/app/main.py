@@ -22,12 +22,14 @@ Architecture:
 """
 
 import time
+import subprocess
+from pathlib import Path
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import settings
+from app.config import settings, get_project_root
 from app.webhooks.github_handler import router as webhook_router
 from app.ws.socket_server import socket_app
 from app.models.webhook_events import HealthResponse
@@ -109,6 +111,81 @@ app.include_router(webhook_router)
 
 # ─── Review API (trigger-agnostic) ───
 
+def _filter_noise_from_diff(diff: str) -> str:
+    """
+    Remove diff hunks for non-code / noise files (such as .gitignore, lockfiles, .pulse/ config)
+    so agents only review meaningful source code changes.
+    """
+    if not diff or not diff.strip():
+        return ""
+
+    noise_patterns = (
+        ".gitignore",
+        ".antigravityignore",
+        ".gitattributes",
+        "package-lock.json",
+        "yarn.lock",
+        "pnpm-lock.yaml",
+        "poetry.lock",
+        "Cargo.lock",
+        ".pulse/",
+    )
+
+    sections = []
+    current_section = []
+    ignore_current = False
+
+    for line in diff.split("\n"):
+        if line.startswith("diff --git "):
+            if current_section and not ignore_current:
+                sections.append("\n".join(current_section))
+            current_section = [line]
+            ignore_current = any(p in line for p in noise_patterns)
+        else:
+            current_section.append(line)
+
+    if current_section and not ignore_current:
+        sections.append("\n".join(current_section))
+
+    return "\n\n".join(sections).strip()
+
+
+def _get_local_git_diff() -> str:
+    """
+    Get the git diff of the user's project directory.
+    First tries staged changes (`git diff --cached`),
+    then falls back to all unstaged changes (`git diff HEAD`).
+    Filters out config/lockfile noise (.gitignore, package-lock.json, etc.).
+    """
+    project_root = get_project_root() or str(Path.cwd())
+    try:
+        res = subprocess.run(
+            ["git", "diff", "--cached"],
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=10,
+        )
+        diff = _filter_noise_from_diff(res.stdout)
+        if not diff or not diff.strip():
+            res_head = subprocess.run(
+                ["git", "diff", "HEAD"],
+                cwd=project_root,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=10,
+            )
+            diff = _filter_noise_from_diff(res_head.stdout)
+        return diff or ""
+    except Exception as e:
+        logger.warning(f"Could not read git diff from {project_root}: {e}")
+        return ""
+
+
 @app.post("/api/review", response_model=ReviewAPIResponse, tags=["Review"])
 async def api_review(request: ReviewAPIRequest):
     """
@@ -117,6 +194,7 @@ async def api_review(request: ReviewAPIRequest):
     Accepts EITHER:
       - A raw diff string (for local/manual reviews)
       - A repo + pr_number (to fetch the diff from GitHub)
+      - Empty body (automatically reviews local git changes in project directory)
 
     This is the same review pipeline that GitHub webhooks use,
     but triggered on-demand. Useful for:
@@ -139,9 +217,16 @@ async def api_review(request: ReviewAPIRequest):
             source=ReviewSource.GITHUB_PR,
         )
     else:
-        return ReviewAPIResponse(
-            status="error",
-            message="Provide either a 'diff' string or 'repo' + 'pr_number'.",
+        # No diff or PR provided -> Automatically grab the local git diff!
+        local_diff = _get_local_git_diff()
+        if not local_diff or not local_diff.strip():
+            return ReviewAPIResponse(
+                status="error",
+                message="No changes detected in local git repository (git diff is empty). Make some edits or stage changes with `git add` first.",
+            )
+        review_request = ReviewRequest(
+            diff=local_diff,
+            source=ReviewSource.MANUAL,
         )
 
     return await run_review(review_request)

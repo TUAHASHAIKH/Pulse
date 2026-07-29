@@ -52,6 +52,7 @@ export function spawnOrchestrator(opts: SpawnOptions): ChildProcess {
       // On Windows, we need shell: false to use the venv binary directly
       env: {
         ...process.env,
+        PULSE_PROJECT_ROOT: process.cwd(),
         // Ensure the venv's Python is used
         VIRTUAL_ENV: opts.venvPath,
         PATH: join(opts.venvPath, process.platform === "win32" ? "Scripts" : "bin") +

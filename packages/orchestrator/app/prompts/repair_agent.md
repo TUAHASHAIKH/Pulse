@@ -45,3 +45,4 @@ The patch MUST be in valid unified diff format:
 3. If the fix requires importing a new module, include that in the patch.
 4. If you cannot produce a reliable fix, set confidence to 0.0 and explain why in the explanation field.
 5. NEVER produce an empty patch. If truly unfixable, still explain why.
+6. NEVER duplicate existing lines when generating a diff! If fixing a missing trailing newline or whitespace at the end of a file, do NOT repeat the last line of text. Only output what is actually added or changed.

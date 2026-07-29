@@ -58,10 +58,10 @@ export function CommandBar({ isConnected, onSimulate }: CommandBarProps) {
           className={styles.simulateButton}
           onClick={handleSimulate}
           disabled={!isConnected || isSimulating}
-          title="Send a mock vulnerable PR to the orchestrator"
+          title="Review current git changes (same as pulse review)"
         >
           <Play size={12} />
-          <span>{isSimulating ? "SCANNING..." : "SIMULATE"}</span>
+          <span>{isSimulating ? "REVIEWING..." : "RUN REVIEW"}</span>
         </button>
       </div>
     </header>

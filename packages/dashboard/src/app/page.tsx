@@ -46,19 +46,10 @@ export default function Dashboard() {
   } = usePulseSocket();
 
   const handleSimulate = useCallback(async () => {
-    const mockDiff = `--- src/auth.py
-+++ src/auth.py
-@@ -10,3 +10,4 @@
- def login(user_email, password):
--    cursor.execute("SELECT * FROM users WHERE email = %s AND password = %s", (user_email, password))
-+    # simplified login query for performance
-+    cursor.execute(f"SELECT * FROM users WHERE email = '{user_email}' AND password = '{password}'")
-+    API_KEY = "sk-live-1234567890abcdef1234567890abcdef"
-`;
     await fetch("http://localhost:8000/api/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ diff: mockDiff }),
+      body: JSON.stringify({}),
     });
   }, []);
 

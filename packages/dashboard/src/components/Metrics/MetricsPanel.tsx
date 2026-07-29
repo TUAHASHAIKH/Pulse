@@ -442,7 +442,7 @@ export function MetricsPanel({
           {latestFindings.length === 0 ? (
             <div className={styles.insightRow}>
               <span className={styles.insightText} style={{ opacity: 0.6 }}>
-                No optimization events recorded yet — Click [SIMULATE] or run{" "}
+                No optimization events recorded yet — Click [RUN REVIEW] or run{" "}
                 <code>pulse review</code> to generate live telemetry.
               </span>
             </div>

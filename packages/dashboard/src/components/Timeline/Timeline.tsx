@@ -148,7 +148,7 @@ export function Timeline({ events }: { events: PulseEvent[] }) {
         <Inbox size={32} className={styles.emptyIcon} />
         <span className={styles.emptyLabel}>AWAITING SIGNAL</span>
         <p className={styles.emptyHint}>
-          Click SIMULATE or open a PR to begin
+          Click RUN REVIEW or run `pulse review` to begin
         </p>
       </div>
     );

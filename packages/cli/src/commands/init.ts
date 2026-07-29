@@ -139,7 +139,7 @@ async function ensureGitignore(projectRoot: string): Promise<void> {
   }
 
   // Append .pulse/ to the existing .gitignore
-  const newContent = content.trimEnd() + "\n\n# Pulse local data\n.pulse/\n";
+  const newContent = content.trimEnd() + "\n\n# Pulse local data\n.pulse/\n\n";
   await writeFile(gitignorePath, newContent, "utf-8");
   printInfo("Added .pulse/ to .gitignore");
 }

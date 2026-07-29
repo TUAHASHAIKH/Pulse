@@ -24,23 +24,166 @@ from app.utils.logger import setup_logger
 logger = setup_logger("pulse.fix")
 
 
+def _clean_patch(patch: str) -> str:
+    """
+    Clean and normalize an LLM-generated patch so `git apply` can read it reliably.
+    - Strips markdown code block formatting if present (```diff ... ```)
+    - Normalizes line endings to LF (\n)
+    - Ensures blank context lines inside diff hunks start with a space (' ')
+    - Ensures every patch ends with a newline (\n)
+    """
+    if not patch:
+        return ""
+
+    lines = patch.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    cleaned = []
+    in_diff = False
+    in_hunk = False
+
+    for raw_line in lines:
+        line = raw_line.rstrip()
+        stripped_left = line.lstrip()
+        if stripped_left.startswith("```") or stripped_left == "`":
+            continue
+        if line.startswith("--- ") or line.startswith("+++ "):
+            in_diff = True
+            in_hunk = False
+            cleaned.append(line)
+            continue
+        if line.startswith("@@ "):
+            in_hunk = True
+            cleaned.append(line)
+            continue
+        if in_hunk:
+            if line == "":
+                cleaned.append(" ")
+            elif line[0] not in (" ", "+", "-", "\\"):
+                cleaned.append(" " + line)
+            else:
+                cleaned.append(line)
+        elif in_diff:
+            cleaned.append(line)
+        else:
+            if line.startswith("diff --git"):
+                cleaned.append(line)
+
+    result = "\n".join(cleaned).strip()
+    if result:
+        result += "\n"
+    return result
+
+
+def _apply_patch_python_fallback(patch: str, project_root: str) -> tuple[bool, list[str], str]:
+    """
+    Fallback patch applier implemented in Python.
+    If git apply fails (due to hunk offset mismatch, trailing whitespace, or formatting),
+    this parses the target file(s) and applies the removals/additions
+    by finding the matching blocks in the file.
+    """
+    lines = patch.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    current_file = None
+    file_hunks = {}  # filename -> list of (old_lines, new_lines)
+
+    old_lines = []
+    new_lines = []
+    in_hunk = False
+
+    for line in lines:
+        if line.startswith("+++ "):
+            path_str = line[4:].strip().split("\t")[0]
+            if path_str.startswith("b/"):
+                path_str = path_str[2:]
+            elif path_str.startswith("a/"):
+                path_str = path_str[2:]
+            current_file = path_str
+            if current_file not in file_hunks:
+                file_hunks[current_file] = []
+            in_hunk = False
+            continue
+
+        if line.startswith("@@ "):
+            if current_file and in_hunk and (old_lines or new_lines):
+                file_hunks[current_file].append((list(old_lines), list(new_lines)))
+            old_lines = []
+            new_lines = []
+            in_hunk = True
+            continue
+
+        if in_hunk and current_file:
+            if line.startswith("-"):
+                old_lines.append(line[1:])
+            elif line.startswith("+"):
+                new_lines.append(line[1:])
+            elif line.startswith(" ") or line == "":
+                val = line[1:] if line.startswith(" ") else ""
+                old_lines.append(val)
+                new_lines.append(val)
+
+    if current_file and in_hunk and (old_lines or new_lines):
+        file_hunks[current_file].append((list(old_lines), list(new_lines)))
+
+    if not file_hunks:
+        return False, [], "Could not parse filenames from patch"
+
+    files_changed = []
+    root_path = Path(project_root)
+
+    for rel_file, hunks in file_hunks.items():
+        abs_path = root_path / rel_file
+        if not abs_path.exists():
+            matches = list(root_path.rglob(Path(rel_file).name))
+            matches = [m for m in matches if ".git" not in m.parts and "node_modules" not in m.parts]
+            if matches:
+                abs_path = matches[0]
+            else:
+                return False, files_changed, f"Target file not found: {rel_file}"
+
+        try:
+            content = abs_path.read_text(encoding="utf-8", errors="replace")
+        except Exception as e:
+            return False, files_changed, f"Could not read {abs_path}: {e}"
+
+        original_content = content
+        for old_lines_list, new_lines_list in hunks:
+            old_text = "\n".join(old_lines_list)
+            new_text = "\n".join(new_lines_list)
+
+            if old_text in content:
+                content = content.replace(old_text, new_text, 1)
+            else:
+                removals = [l for l in old_lines_list if not l.startswith(" ") and l != ""]
+                additions = [l for l in new_lines_list if not l.startswith(" ") and l != ""]
+                if removals:
+                    removals_text = "\n".join(removals)
+                    additions_text = "\n".join(additions)
+                    if removals_text in content and content.count(removals_text) == 1:
+                        content = content.replace(removals_text, additions_text, 1)
+                    else:
+                        return False, files_changed, f"Could not locate matching code block in {abs_path.name}"
+                elif additions and not removals:
+                    continue
+
+        if content != original_content:
+            try:
+                abs_path.write_text(content, encoding="utf-8")
+                files_changed.append(rel_file)
+            except Exception as e:
+                return False, files_changed, f"Could not write {abs_path}: {e}"
+
+    if not files_changed:
+        return False, [], "No changes applied (content already up to date or patch empty)"
+
+    return True, files_changed, ""
+
+
 async def apply_locally(
     patch: str,
     project_root: str,
 ) -> FixApplicationResponse:
     """
-    Apply a patch to the user's local filesystem via `git apply`.
-
-    The patch is written to a temp file and applied using git.
-    No commit is made — the user sees the changes in their editor
-    and can commit/push when ready.
-
-    Args:
-        patch: Unified diff patch text
-        project_root: Absolute path to the project root directory
-
-    Returns:
-        FixApplicationResponse with success status and changed files
+    Apply a patch to the user's local filesystem.
+    First cleans the patch and attempts `git apply` with whitespace tolerance flags.
+    If git apply fails, falls back to a resilient Python patch applier that directly modifies the file.
     """
     import tempfile
     import os
@@ -54,80 +197,84 @@ async def apply_locally(
             message=f"Project directory not found: {project_root}",
         )
 
-    try:
-        # Write patch to a temporary file
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".patch", delete=False, encoding="utf-8"
-        ) as f:
-            f.write(patch)
-            patch_file = f.name
+    # Step 1: Clean and normalize patch
+    cleaned_patch = _clean_patch(patch)
 
-        # Apply using git apply
-        result = subprocess.run(
-            ["git", "apply", "--stat", patch_file],
-            cwd=project_root,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+    # Step 2: Try git apply with whitespace-forgiving flags
+    for flags in (
+        ["--whitespace=fix", "--ignore-space-change", "--ignore-whitespace"],
+        ["--whitespace=nowarn", "--ignore-space-change", "--ignore-whitespace", "--recount", "-C1"],
+        ["--whitespace=nowarn", "--ignore-space-change", "--ignore-whitespace", "--recount", "-C0", "--unidiff-zero"],
+    ):
+        patch_file = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".patch", delete=False, encoding="utf-8"
+            ) as f:
+                f.write(cleaned_patch)
+                patch_file = f.name
 
-        # Parse changed files from --stat output
-        files_changed = []
-        for line in result.stdout.strip().split("\n"):
-            if "|" in line:
-                filename = line.split("|")[0].strip()
-                if filename:
-                    files_changed.append(filename)
-
-        # Actually apply the patch (--stat was just for info)
-        apply_result = subprocess.run(
-            ["git", "apply", patch_file],
-            cwd=project_root,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-
-        # Cleanup temp file
-        os.unlink(patch_file)
-
-        if apply_result.returncode == 0:
-            logger.info(f"Fix applied locally: {len(files_changed)} file(s) changed")
-            return FixApplicationResponse(
-                success=True,
-                method="local",
-                message=f"Fix applied to {len(files_changed)} file(s). "
-                        f"Changes are unstaged — commit when ready.",
-                files_changed=files_changed,
-            )
-        else:
-            error = apply_result.stderr.strip()
-            logger.error(f"git apply failed: {error}")
-            return FixApplicationResponse(
-                success=False,
-                method="local",
-                message=f"git apply failed: {error}",
+            stat_res = subprocess.run(
+                ["git", "apply", "--stat"] + flags + [patch_file],
+                cwd=project_root,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=30,
             )
 
-    except subprocess.TimeoutExpired:
+            apply_res = subprocess.run(
+                ["git", "apply"] + flags + [patch_file],
+                cwd=project_root,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=30,
+            )
+            if patch_file and os.path.exists(patch_file):
+                os.unlink(patch_file)
+
+            if apply_res.returncode == 0:
+                files_changed = []
+                for line in stat_res.stdout.strip().split("\n"):
+                    if "|" in line:
+                        filename = line.split("|")[0].strip()
+                        if filename:
+                            files_changed.append(filename)
+                logger.info(f"Fix applied locally via git apply ({len(files_changed)} file(s) changed)")
+                return FixApplicationResponse(
+                    success=True,
+                    method="local",
+                    message=f"Fix applied to {len(files_changed)} file(s). "
+                            f"Changes are unstaged — commit when ready.",
+                    files_changed=files_changed,
+                )
+        except Exception:
+            if patch_file and os.path.exists(patch_file):
+                os.unlink(patch_file)
+            continue
+
+    # Step 3: If all git apply attempts fail, use Python fallback applier
+    logger.info("git apply flags failed; attempting Python fallback patch applier...")
+    success, files_changed, error_msg = _apply_patch_python_fallback(cleaned_patch, project_root)
+    if success:
+        logger.info(f"Fix applied locally via Python fallback ({len(files_changed)} file(s) changed)")
         return FixApplicationResponse(
-            success=False,
+            success=True,
             method="local",
-            message="git apply timed out after 30 seconds",
+            message=f"Fix applied to {len(files_changed)} file(s). "
+                    f"Changes are unstaged — commit when ready.",
+            files_changed=files_changed,
         )
-    except FileNotFoundError:
-        return FixApplicationResponse(
-            success=False,
-            method="local",
-            message="git is not installed or not in PATH",
-        )
-    except Exception as e:
-        logger.error(f"Failed to apply locally: {e}")
-        return FixApplicationResponse(
-            success=False,
-            method="local",
-            message=f"Unexpected error: {str(e)}",
-        )
+
+    logger.error(f"Failed to apply patch: {error_msg}")
+    return FixApplicationResponse(
+        success=False,
+        method="local",
+        message=f"Could not apply patch: {error_msg}",
+    )
 
 
 async def post_as_pr_comment(

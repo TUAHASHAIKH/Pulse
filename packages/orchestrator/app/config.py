@@ -33,7 +33,8 @@ def _find_pulse_config() -> Optional[dict]:
     Returns:
         The parsed config dict, or None if no config file was found.
     """
-    current = Path.cwd()
+    start_dir = os.environ.get("PULSE_PROJECT_ROOT")
+    current = Path(start_dir).resolve() if start_dir else Path.cwd()
 
     # Walk up the directory tree
     for directory in [current, *current.parents]:

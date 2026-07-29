@@ -17,7 +17,7 @@ Usage:
 
 import json
 import time
-from typing import Optional
+from typing import Any, Optional, cast
 
 from app.config import settings
 from app.models.agent_models import TokenUsage
@@ -182,7 +182,7 @@ class LLMClient:
     ) -> LLMResponse:
         """Call Anthropic's Claude API."""
         client = self._get_anthropic_client()
-        model = model or "claude-sonnet-4-20250514"
+        model = model or "claude-sonnet-5"
 
         start = time.time()
         logger.info(f"Calling Anthropic ({model})...")
@@ -195,15 +195,24 @@ class LLMClient:
             "Your entire response must be parseable by json.loads()."
         )
 
-        response = await client.messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            system=json_system,
-            messages=[
-                {"role": "user", "content": user_message}
-            ],
-        )
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "system": json_system,
+            "messages": [{"role": "user", "content": user_message}],
+        }
+        if "sonnet-5" not in model.lower() and "claude-5" not in model.lower():
+            kwargs["temperature"] = temperature
+
+        try:
+            response = cast(Any, await client.messages.create(**kwargs))
+        except Exception as e:
+            if "temperature" in str(e).lower() and "deprecated" in str(e).lower() and "temperature" in kwargs:
+                logger.warning(f"Model {model} deprecates temperature, retrying without temperature...")
+                kwargs.pop("temperature", None)
+                response = cast(Any, await client.messages.create(**kwargs))
+            else:
+                raise
 
         duration = time.time() - start
         content = "".join(getattr(block, "text", "") for block in response.content if getattr(block, "type", "") == "text")
