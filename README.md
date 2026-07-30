@@ -4,7 +4,7 @@
 
 ### Autonomous Multi-Agent DevOps & Code Review System
 
-**AI-powered code review · Automated repair · Production self-healing**
+**AI-powered PR & Diff Code Review · Automated Docker Repair · Real-Time Dashboard**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/pulse-agent.svg?style=flat-square)](https://www.npmjs.com/package/pulse-agent)
@@ -15,32 +15,51 @@
 
 ---
 
-Pulse is an open-source, multi-agent DevOps system that reviews your code before it merges and watches your applications after they deploy. A team of specialised AI agents — coordinated through **[LangGraph](https://github.com/langchain-ai/langgraph)** — catches security flaws, performance regressions, and code-quality issues on every pull request, attempts to fix critical problems automatically inside an isolated Docker sandbox, and streams live diagnostics to a real-time web dashboard.
+**Pulse** is an open-source, autonomous multi-agent code review and DevOps system. Powered by **[LangGraph](https://github.com/langchain-ai/langgraph)**, Pulse coordinates specialized AI agents that review your code in parallel before it merges, patches bugs inside an isolated Docker sandbox, and streams live diagnostics to an interactive web dashboard.
+
+```mermaid
+graph TD
+    A[Git Diff / PR] --> B[FastAPI Orchestrator]
+    B --> C[LangGraph Parallel Pipeline]
+    
+    subgraph Agents [Multi-Agent Analysis]
+        C --> D[🛡️ Security Agent]
+        C --> E[⚡ Performance Agent]
+        C --> F[💎 Code Quality Agent]
+    end
+    
+    D --> G[Socket.io Real-Time Stream]
+    E --> G
+    F --> G
+    
+    G --> H[🌐 Next.js Dashboard<br>localhost:3000]
+    G --> I[🔧 Repair Agent<br>Docker Sandbox Test & Patch]
+```
 
 ---
 
-## ✨ Features
+## ✨ Why Pulse?
 
-- **🔍 AI Code Review** — Specialized Security, Performance, and Code Quality agents review every PR and git diff in parallel.
-- **🔧 Automated Repair** — Critical issues are automatically patched and tested inside an isolated Docker sandbox.
-- **📊 Real-Time Web Dashboard** — Beautiful Next.js UI showing live agent thinking, file recommendations, and system metrics.
-- **⚡ CLI-First (`pulse-agent`)** — Install once with npm and use the `pulse` CLI command across any project on your computer with zero manual virtualenv management.
+- **🔍 Multi-Agent Review Pipeline** — Specialized **Security**, **Performance**, and **Code Quality** agents evaluate every change concurrently, eliminating noisy single-prompt hallucinations.
+- **⚡ CLI-First (`pulse-agent`)** — Install once via npm (`npm install -g pulse-agent`) and run `pulse start` anywhere. Pulse automatically creates and caches a Python 3.11+ virtual environment (`.pulse/.venv/`) with zero manual setup.
+- **🔧 Automated Docker Repair** — When a critical issue is found, Pulse boots an isolated Docker container, applies the fix, executes tests, and verifies the patch before presenting it to you.
+- **📊 Interactive Web Dashboard** — A modern React 19 / Next.js real-time UI showing live neural agent thinking, severity filtering (**Critical**, **Warning**, **Info**), and one-click patch application.
 
 ---
 
-## 🚀 Quick Start (CLI — Recommended)
+## 🚀 Quickstart
 
 ### 1. Install Globally
 
-Install the Pulse CLI globally from npm:
+Install the Pulse CLI from npm:
 
 ```bash
 npm install -g pulse-agent
 ```
 
-> **Note:** Requires **Node.js 18+** and **Python 3.11+** installed on your system.
+> **Prerequisites:** Requires **Node.js 18+** and **Python 3.11+** installed on your system.
 
-### 2. Initialize in Any Project
+### 2. Initialize Your Project
 
 Navigate to any Git repository on your machine and run:
 
@@ -50,7 +69,7 @@ pulse init
 ```
 
 The interactive wizard will:
-- Let you choose your LLM provider (**Anthropic**, **OpenAI**, or **Groq**) and save your API key.
+- Let you choose your preferred LLM provider (**Anthropic**, **OpenAI**, or **Groq**) and securely store your API key.
 - Optionally configure your **GitHub token** for remote pull request reviews.
 - Create a `.pulse/config.json` configuration file in your project directory.
 - Automatically add `.pulse/` to your `.gitignore`.
@@ -63,8 +82,8 @@ pulse start
 
 This launches both the **Python Orchestrator Backend** (`http://localhost:8000`) and the **Interactive Web Dashboard** (`http://localhost:3000`) in the background.
 
-- On first run, Pulse automatically detects Python 3.11+ and creates a self-contained virtual environment inside `.pulse/.venv/`.
-- It installs required Python packages using hash-based caching so subsequent startups take less than a second!
+> [!TIP]
+> On first boot, Pulse automatically configures an isolated Python virtual environment at `.pulse/.venv/` and caches requirements so subsequent launches take under a second.
 
 ---
 
@@ -72,62 +91,52 @@ This launches both the **Python Orchestrator Backend** (`http://localhost:8000`)
 
 | Command | Description |
 |---|---|
-| `pulse init` | Interactive setup wizard to configure API keys for the current project |
-| `pulse start` | Start the Pulse backend orchestrator (`:8000`) and UI dashboard (`:3000`) |
-| `pulse review` | Analyze your local staged/unstaged `git diff` using all AI agents |
-| `pulse review --pr owner/repo#123` | Review a remote GitHub Pull Request |
-| `pulse status` | Display a live health check table of all Pulse services and ports |
-| `pulse stop` | Gracefully shut down background orchestrator and dashboard processes |
+| `pulse init` | Interactive wizard to configure API keys and preferences for the project |
+| `pulse start` | Boot the Pulse backend orchestrator (`:8000`) and UI dashboard (`:3000`) |
+| `pulse review` | Run an AI review on your local staged/unstaged `git diff` |
+| `pulse review --pr owner/repo#123` | Analyze a remote GitHub Pull Request |
+| `pulse status` | Check the live health and port status of all Pulse components |
+| `pulse stop` | Gracefully shut down background Pulse servers |
 
 ---
 
-## 🌐 Interactive Dashboard
+## 🌐 Real-Time Dashboard
 
-When Pulse is running (`pulse start`), open your browser to:
-👉 **[http://localhost:3000](http://localhost:3000)**
+When Pulse is running, open your browser to **[http://localhost:3000](http://localhost:3000)**:
 
-- **Live Agent Pipeline:** Watch Security, Performance, and Quality agents analyze your code in real time via Socket.io.
-- **Detailed Findings:** Filter recommendations by severity (**Critical**, **Warning**, **Info**) and inspect exact line numbers.
-- **Interactive Repair Panel:** Review Docker sandbox patches and apply automated fixes directly to your files.
+- **Live Agent Pipeline:** Monitor Security, Performance, and Quality agents streaming structured findings via Socket.io.
+- **Severity & File Filtering:** Quickly hone in on **Critical** vulnerabilities or browse recommendations file-by-file.
+- **Interactive Patch Review:** Inspect diffs generated by the Docker Repair sandbox and apply them to your working tree.
 
 ---
 
-## 🏗️ Architecture & Monorepo Structure
-
-```
-GitHub PR / git diff ──→ FastAPI Orchestrator ──→ LangGraph Multi-Agent Graph
-                               │                              │
-                           Socket.io ◄─────────────── Agent Findings
-                               │                              │
-                        Web Dashboard                Repair Agent (Docker)
-                       (localhost:3000)             (sandbox → test → patch)
-```
+## 🏗️ Monorepo Architecture
 
 ```
 pulse/
 ├── packages/
-│   ├── orchestrator/    # FastAPI + LangGraph backend (Python 3.11+)
-│   ├── dashboard/       # Next.js real-time UI (React 19 + standalone build)
-│   └── cli/             # npm CLI package (Commander.js + process lifecycle)
+│   ├── orchestrator/    # FastAPI + LangGraph Multi-Agent Backend (Python 3.11+)
+│   ├── dashboard/       # Next.js Real-Time UI (React 19 + Standalone Build)
+│   └── cli/             # npm CLI Package (Commander.js + Lifecycle Manager)
 ├── docs/
-│   └── agent-prompts/   # Versioned system prompts for each agent
+│   └── agent-prompts/   # Versioned System Prompts for AI Agents
 ├── infra/
-│   └── k8s/             # Kubernetes manifests
-└── package.json         # Monorepo root
+│   └── k8s/             # Kubernetes Deployment Manifests
+└── package.json         # Monorepo Root
 ```
 
 ---
 
-## 💻 Developer & Contributor Setup
+## 💻 Developing & Contributing
 
-If you want to contribute to the Pulse codebase or run from source:
+To develop Pulse locally or run from source:
 
 ```bash
 # 1. Clone the repository
 git clone https://github.com/yourusername/pulse.git
 cd pulse
 
-# 2. Install Node dependencies
+# 2. Install dependencies
 npm install
 
 # 3. Build dashboard and CLI
@@ -138,7 +147,7 @@ npm run build:cli
 cd packages/cli
 npm link
 
-# 5. Start development servers
+# 5. Run dev servers
 npm run dev
 ```
 

@@ -1,8 +1,28 @@
+<div align="center">
+
 # 🫀 Pulse (`pulse-agent`)
 
-**AI-powered code review from your terminal — security, performance, and quality agents on every PR.**
+### AI-powered Code Review & DevOps from your terminal — Security, Performance, and Quality agents on every PR.
 
-Pulse brings automated multi-agent code reviews directly to your development workflow. It combines a terminal CLI with an interactive web dashboard so you can review pull requests or local git diffs before pushing.
+[![npm version](https://img.shields.io/npm/v/pulse-agent.svg?style=flat-square)](https://www.npmjs.com/package/pulse-agent)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Node 18+](https://img.shields.io/badge/node-18+-green.svg)](https://nodejs.org/)
+
+</div>
+
+---
+
+**Pulse** brings autonomous multi-agent code reviews directly to your terminal and development workflow. Powered by **[LangGraph](https://github.com/langchain-ai/langgraph)**, Pulse coordinates specialized AI agents that review pull requests or local git diffs in parallel, test fixes inside an isolated Docker sandbox, and stream real-time findings to an interactive web dashboard.
+
+---
+
+## ✨ Features
+
+- **🔍 Parallel Multi-Agent Reviews** — Specialized **Security**, **Performance**, and **Code Quality** agents analyze your diffs concurrently.
+- **⚡ Zero-Configuration Setup** — Runs `pulse start` in any repository. Automatically creates and caches a Python 3.11+ virtual environment (`.pulse/.venv/`) with zero manual virtualenv management.
+- **🔧 Automated Docker Repair** — Generates and verifies patch fixes inside an isolated Docker container before suggesting them.
+- **🌐 Real-Time Interactive Dashboard** — Live Next.js UI (`http://localhost:3000`) showing agent stream thinking, severity filtering, and one-click patch application.
 
 ---
 
@@ -14,20 +34,20 @@ Pulse brings automated multi-agent code reviews directly to your development wor
 npm install -g pulse-agent
 ```
 
-> **Note:** Requires **Node.js 18+** and **Python 3.11+** installed on your machine.
+> **Prerequisites:** Requires **Node.js 18+** and **Python 3.11+** installed on your machine.
 
 ### 2. Initialize in Any Project
 
-Navigate to any git repository on your computer and run:
+Navigate to any Git repository on your computer and run:
 
 ```bash
 cd /path/to/your-repo
 pulse init
 ```
 
-This interactive setup wizard will:
-- Ask for your LLM provider (**Anthropic**, **OpenAI**, or **Groq**) and API key
-- Optionally configure your **GitHub token** for PR reviews
+The setup wizard will:
+- Ask for your LLM provider (**Anthropic**, **OpenAI**, or **Groq**) and securely store your API key
+- Optionally configure your **GitHub token** for remote PR reviews
 - Create a `.pulse/config.json` file in your project root
 - Automatically add `.pulse/` to your `.gitignore`
 
@@ -37,19 +57,16 @@ This interactive setup wizard will:
 pulse start
 ```
 
-This boots both the **Python Orchestrator API** (`http://localhost:8000`) and the **Interactive Web Dashboard** (`http://localhost:3000`) in the background.
-
-- On first start, Pulse automatically creates a Python virtual environment at `.pulse/.venv/` and installs the required dependencies.
-- No manual `pip install` or `venv` management needed!
+This launches both the **Python Orchestrator API** (`http://localhost:8000`) and the **Interactive Web Dashboard** (`http://localhost:3000`) in the background.
 
 ---
 
-## 🛠️ CLI Commands
+## 🛠️ CLI Reference (`pulse`)
 
 | Command | Description |
 |---|---|
 | `pulse init` | Interactive setup wizard to configure API keys for the current project |
-| `pulse start` | Start the Pulse orchestrator (`:8000`) and dashboard (`:3000`) |
+| `pulse start` | Boot the Pulse orchestrator (`:8000`) and dashboard (`:3000`) |
 | `pulse review` | Trigger a review on your local staged/unstaged `git diff` |
 | `pulse review --pr owner/repo#123` | Review a remote GitHub Pull Request |
 | `pulse status` | Display a health check table of all Pulse components |
@@ -59,30 +76,28 @@ This boots both the **Python Orchestrator API** (`http://localhost:8000`) and th
 
 ## 🌐 Interactive Dashboard
 
-When Pulse is running (`pulse start`), open your browser to:
-👉 **[http://localhost:3000](http://localhost:3000)**
+When Pulse is running (`pulse start`), open your browser to **[http://localhost:3000](http://localhost:3000)**:
 
-You'll see:
-- **Live Agent Pipeline:** Watch Security, Performance, and Quality agents analyze your code in real time.
-- **Detailed Findings:** Filter reviews by severity (**Critical**, **Warning**, **Info**) and inspect exact file/line recommendations.
-- **Left Navigation Panel:** Seamlessly switch between code reviews, agent status, and settings.
+- **Live Agent Pipeline:** Watch Security, Performance, and Quality agents stream findings via Socket.io.
+- **Severity & File Filtering:** Filter reviews by **Critical**, **Warning**, and **Info**, or inspect exact file/line recommendations.
+- **Interactive Patch Review:** Inspect diffs generated by the Docker Repair sandbox and apply them to your working tree.
 
 ---
 
-## 🏗️ How It Works (Architecture)
+## 🏗️ Under the Hood
 
 ```
 Your Project Repo/
   ├── .pulse/
-  │     ├── config.json       # Your API keys & preferences
+  │     ├── config.json       # API keys & preferences
   │     ├── .venv/            # Auto-managed Python environment
   │     └── .pid.json         # Background process tracking
   └── ...your codebase
 ```
 
-1. **Self-Contained Bundling:** The CLI package bundles the Python backend and Next.js frontend directly inside the npm package.
-2. **Zero-Configuration Venv:** When `pulse start` runs, it detects Python 3.11+, sets up a venv inside `.pulse/`, and installs requirements using hash-based caching to skip redundant installs.
-3. **Multi-Agent Orchestration:** Reviews are powered by LangGraph, routing code changes through specialized security, performance, and quality analyzers.
+1. **Self-Contained Packaging:** The CLI package bundles the Python backend and Next.js frontend directly inside the npm package.
+2. **Hash-Cached Venv:** When `pulse start` runs, it detects Python 3.11+, configures a virtual environment inside `.pulse/`, and installs requirements using hash-based caching to skip redundant installs.
+3. **LangGraph Orchestration:** Reviews are routed through specialized LangGraph nodes for concurrent security, performance, and code quality evaluation.
 
 ---
 
