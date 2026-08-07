@@ -16,7 +16,7 @@ Design decisions:
 
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 
@@ -98,7 +98,7 @@ class ReviewRequest(BaseModel):
         description="Who authored the code"
     )
     timestamp: str = Field(
-        default_factory=lambda: datetime.utcnow().isoformat()
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
 
 
