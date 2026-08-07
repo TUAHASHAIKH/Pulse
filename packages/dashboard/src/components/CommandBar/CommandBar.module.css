@@ -132,6 +132,39 @@
   cursor: not-allowed;
 }
 
+/* ─── Full Audit Button (amber accent) ─── */
+.auditButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 8px 20px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid var(--nx-amber, #f0a030);
+  border-radius: var(--radius-xs);
+  color: var(--nx-amber, #f0a030);
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  white-space: nowrap;
+}
+
+.auditButton:hover:not(:disabled) {
+  background: rgba(240, 160, 48, 0.08);
+  box-shadow: 0 0 12px rgba(240, 160, 48, 0.25);
+}
+
+.auditButton:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.auditButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* ─── Responsive ─── */
 @media (max-width: 768px) {
   .statusSection {
@@ -150,6 +183,11 @@
     display: none;
   }
   .simulateButton {
+    font-size: 8px;
+    padding: 6px 14px;
+    height: 32px;
+  }
+  .auditButton {
     font-size: 8px;
     padding: 6px 14px;
     height: 32px;

@@ -1,6 +1,6 @@
 {
   "name": "pulse-agent",
-  "version": "0.1.14",
+  "version": "0.1.18",
   "description": "AI-powered code review from your terminal — security, performance, and quality agents on every PR",
   "bin": {
     "pulse": "./dist/index.js"

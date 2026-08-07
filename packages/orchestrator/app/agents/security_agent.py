@@ -57,21 +57,32 @@ def _build_user_message(diff: str, changed_files: list[str]) -> str:
     """
     Build the user message sent to the LLM.
 
-    Includes the diff text and a summary of changed files
+    Supports two input modes:
+      - Diff mode: traditional unified diff (starts with "diff --git")
+      - Full file mode: raw source file content (starts with "## File:")
+
+    Includes the diff/file text and a summary of changed files
     to give the LLM context about what was modified.
     """
+    is_full_file = diff.lstrip().startswith("## File:")
+
     parts = []
 
     if changed_files:
-        parts.append("## Changed Files")
+        header = "## Files Under Review" if is_full_file else "## Changed Files"
+        parts.append(header)
         for f in changed_files:
             parts.append(f"- {f}")
         parts.append("")
 
-    parts.append("## Diff")
-    parts.append("```diff")
-    parts.append(diff)
-    parts.append("```")
+    if is_full_file:
+        parts.append("## Source Files")
+        parts.append(diff)
+    else:
+        parts.append("## Diff")
+        parts.append("```diff")
+        parts.append(diff)
+        parts.append("```")
 
     return "\n".join(parts)
 

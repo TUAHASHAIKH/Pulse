@@ -53,6 +53,14 @@ export default function Dashboard() {
     });
   }, []);
 
+  const handleFullAudit = useCallback(async () => {
+    await fetch("http://localhost:8000/api/review/full", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: false }),
+    });
+  }, []);
+
   const handleKeyNav = (e: React.KeyboardEvent, section: Section) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -63,7 +71,7 @@ export default function Dashboard() {
   return (
     <div className={styles.root}>
       <Scanline />
-      <CommandBar isConnected={isConnected} onSimulate={handleSimulate} />
+      <CommandBar isConnected={isConnected} onSimulate={handleSimulate} onFullAudit={handleFullAudit} />
 
       <div className={styles.shell}>
         {/* ─── Left Sidebar Nav ─── */}

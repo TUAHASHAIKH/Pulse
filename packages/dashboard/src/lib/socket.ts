@@ -199,36 +199,54 @@ export function usePulseSocket() {
     const reviewStarted = events.find((e) => e.type === "review_started");
     if (!reviewStarted) return null;
 
-    const reviewCompleted = events.find(
-      (e) =>
-        e.type === "review_completed" &&
-        e.payload.review_id === reviewStarted.payload.review_id
+    const reviewId = reviewStarted.payload.review_id;
+    const allStarts = events.filter((e) => e.type === "review_started" && e.payload.review_id === reviewId);
+    const allCompletions = events.filter((e) => e.type === "review_completed" && e.payload.review_id === reviewId);
+
+    // It's active if we have more starts than completions (a batch is currently running)
+    const isActive = allStarts.length > allCompletions.length;
+
+    const totalFindings = allCompletions.reduce(
+      (sum, e) => sum + (e.payload.total_findings || 0),
+      0
     );
 
     return {
-      reviewId: reviewStarted.payload.review_id,
+      reviewId,
       source: reviewStarted.payload.source,
-      startedAt: reviewStarted.timestamp,
-      completedAt: reviewCompleted?.timestamp,
-      totalFindings: reviewCompleted?.payload.total_findings,
-      results: reviewCompleted?.payload.results,
-      isActive: !reviewCompleted,
+      startedAt: allStarts[allStarts.length - 1].timestamp, // oldest start event
+      completedAt: allCompletions.length > 0 ? allCompletions[0].timestamp : undefined, // newest completion
+      totalFindings,
+      results: allCompletions.flatMap((e) => e.payload.results || []),
+      isActive,
     };
+  }, [events]);
+
+  /* ─── Derived: Current Review ID ─── */
+  const currentReviewId = useMemo((): string => {
+    const reviewStarted = events.find((e) => e.type === "review_started");
+    return reviewStarted?.payload.review_id || "";
   }, [events]);
 
   /* ─── Derived: Latest Findings ─── */
   const latestFindings = useMemo((): Finding[] => {
-    const completedReview = events.find((e) => e.type === "review_completed");
-    if (!completedReview?.payload.results) return [];
+    if (!currentReviewId) return [];
 
-    return completedReview.payload.results.flatMap(
-      (r: AgentResult) => r.findings || []
+    const matchingEvents = events.filter(
+      (e) => e.type === "review_completed" && e.payload.review_id === currentReviewId
     );
-  }, [events]);
+
+    return matchingEvents.flatMap((e) =>
+      (e.payload.results || []).flatMap((r: AgentResult) => r.findings || [])
+    );
+  }, [events, currentReviewId]);
 
   /* ─── Derived: Aggregate Metrics ─── */
   const metrics = useMemo(() => {
-    const reviewStarts = events.filter((e) => e.type === "review_started").length;
+    const reviewStarts = events.filter((e) => e.type === "review_started");
+    const uniqueReviewIds = new Set(reviewStarts.map((e) => e.payload.review_id));
+    const totalReviews = uniqueReviewIds.size;
+
     const reviewCompletions = events.filter((e) => e.type === "review_completed");
     const totalFindings = reviewCompletions.reduce(
       (acc, e) => acc + (e.payload.total_findings || 0),
@@ -258,7 +276,7 @@ export function usePulseSocket() {
     }, 0);
 
     return {
-      totalReviews: reviewStarts,
+      totalReviews,
       totalFindings,
       totalTokens,
       criticalCount,
@@ -267,17 +285,14 @@ export function usePulseSocket() {
 
   /* ─── Derived: Latest Repair Results ─── */
   const latestRepairs = useMemo((): RepairResult[] => {
-    const completedReview = events.find((e) => e.type === "review_completed");
-    if (!completedReview?.payload.repair_results) return [];
+    if (!currentReviewId) return [];
 
-    return completedReview.payload.repair_results as RepairResult[];
-  }, [events]);
+    const matchingEvents = events.filter(
+      (e) => e.type === "review_completed" && e.payload.review_id === currentReviewId
+    );
 
-  /* ─── Derived: Current Review ID ─── */
-  const currentReviewId = useMemo((): string => {
-    const reviewStarted = events.find((e) => e.type === "review_started");
-    return reviewStarted?.payload.review_id || "";
-  }, [events]);
+    return matchingEvents.flatMap((e) => (e.payload.repair_results || []) as RepairResult[]);
+  }, [events, currentReviewId]);
 
   return {
     socket,

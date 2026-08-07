@@ -34,17 +34,24 @@ def _load_system_prompt() -> str:
 
 
 def _build_user_message(diff: str, changed_files: list[str]) -> str:
+    is_full_file = diff.lstrip().startswith("## File:")
+
     parts = []
     if changed_files:
-        parts.append("## Changed Files")
+        header = "## Files Under Review" if is_full_file else "## Changed Files"
+        parts.append(header)
         for f in changed_files:
             parts.append(f"- {f}")
         parts.append("")
 
-    parts.append("## Diff")
-    parts.append("```diff")
-    parts.append(diff)
-    parts.append("```")
+    if is_full_file:
+        parts.append("## Source Files")
+        parts.append(diff)
+    else:
+        parts.append("## Diff")
+        parts.append("```diff")
+        parts.append(diff)
+        parts.append("```")
 
     return "\n".join(parts)
 

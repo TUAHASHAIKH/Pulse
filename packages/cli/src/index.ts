@@ -65,11 +65,15 @@ program
   .command("review")
   .description("Trigger a code review")
   .option("--pr <ref>", "Review a GitHub PR (format: owner/repo#123)")
+  .option("--all", "Full repository audit — scan all source files, not just git diff")
+  .option("--force", "Re-scan all files even if unchanged since last audit (use with --all)")
   .option("-p, --port <port>", "Orchestrator port", "8000")
   .action(async (opts) => {
     await reviewCommand({
       pr: opts.pr,
       port: parseInt(opts.port, 10),
+      all: opts.all,
+      force: opts.force,
     });
   });
 

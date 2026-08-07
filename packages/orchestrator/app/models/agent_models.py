@@ -36,6 +36,7 @@ class ReviewSource(str, Enum):
     CLI = "cli"                 # Triggered by `pulse review` command
     MANUAL = "manual"           # Triggered by POST /api/review
     LOCAL = "local"             # Local diff (uncommitted changes)
+    FULL_AUDIT = "full_audit"   # Full repository audit (pulse review --all)
 
 
 # ─── Review Input (trigger-agnostic) ───
@@ -61,6 +62,10 @@ class ReviewRequest(BaseModel):
     changed_files: list[str] = Field(
         default_factory=list,
         description="List of file paths that were changed"
+    )
+    review_id: Optional[str] = Field(
+        default=None,
+        description="Optional shared ID for batched reviews"
     )
 
     # ── Source metadata (where did this come from?) ──
@@ -305,13 +310,25 @@ class ReviewAPIRequest(BaseModel):
 
 
 class ReviewAPIResponse(BaseModel):
-    """Response from POST /api/review."""
+    """Response from POST /api/review or POST /api/review/full."""
     status: str = "completed"
     review_id: str = ""
     results: list[AgentResult] = Field(default_factory=list)
     repair_results: list[RepairResult] = Field(default_factory=list)
     posted_comment: bool = False
     message: str = ""
+    scan_stats: Optional[dict] = Field(
+        default=None,
+        description="File scan statistics for full audit mode (files_total, files_scanned, files_skipped, files_oversized)"
+    )
+
+
+class FullAuditAPIRequest(BaseModel):
+    """Request body for POST /api/review/full."""
+    force: bool = Field(
+        default=False,
+        description="If True, re-scan all files even if unchanged since last audit"
+    )
 
 
 class FixApplicationRequest(BaseModel):

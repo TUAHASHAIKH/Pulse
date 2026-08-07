@@ -34,6 +34,7 @@
   border: 1px solid var(--nx-border);
   border-radius: var(--radius-md);
   overflow: hidden;
+  flex-shrink: 0;
   transition: border-color var(--duration-fast) var(--ease-out);
 }
 

@@ -4,6 +4,8 @@
  * Trigger a code review from the terminal.
  *   - `pulse review`              → sends `git diff HEAD` to the orchestrator
  *   - `pulse review --pr org/repo#42` → sends the PR reference
+ *   - `pulse review --all`        → full repository audit (scans all files)
+ *   - `pulse review --all --force` → re-scan everything ignoring cache
  */
 
 import { exec } from "node:child_process";
@@ -24,6 +26,8 @@ const execAsync = promisify(exec);
 export async function reviewCommand(options: {
   pr?: string;
   port?: number;
+  all?: boolean;
+  force?: boolean;
 }): Promise<void> {
   const orchestratorPort = options.port || 8000;
   const baseUrl = `http://localhost:${orchestratorPort}`;
@@ -45,6 +49,105 @@ export async function reviewCommand(options: {
     );
     process.exit(1);
   }
+
+  // ── Full Audit Mode ──
+  if (options.all) {
+    const auditSpinner = createSpinner(
+      options.force
+        ? "Running full repository audit (force re-scan)..."
+        : "Running full repository audit..."
+    );
+    auditSpinner.start();
+
+    try {
+      const res = await fetch(`${baseUrl}/api/review/full`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force: options.force || false }),
+      });
+
+      const data = await res.json() as {
+        status: string;
+        review_id?: string;
+        message?: string;
+        scan_stats?: {
+          files_total: number;
+          files_to_scan: number;
+          files_skipped: number;
+          files_oversized: number;
+        };
+        results?: Array<{
+          agent_name: string;
+          findings: Array<{
+            severity: string;
+            title: string;
+            file: string;
+            description: string;
+          }>;
+        }>;
+      };
+
+      if (data.status === "error") {
+        auditSpinner.fail(`Audit failed: ${data.message}`);
+        process.exit(1);
+      }
+
+      const stats = data.scan_stats;
+      if (stats) {
+        auditSpinner.succeed(
+          `Audit complete — scanned ${stats.files_to_scan} files, ` +
+          `${stats.files_skipped} unchanged (skipped), ` +
+          `${stats.files_oversized} oversized (skipped)`
+        );
+      } else {
+        auditSpinner.succeed(`Audit complete (ID: ${data.review_id})`);
+      }
+
+      // Display results
+      console.log();
+      const results = data.results || [];
+
+      if (results.length === 0) {
+        printSuccess("No findings — your codebase looks good! 🎉");
+        return;
+      }
+
+      for (const agentResult of results) {
+        console.log(chalk.bold(`  📋 ${agentResult.agent_name}`));
+
+        if (agentResult.findings.length === 0) {
+          console.log(chalk.dim("     No findings"));
+          continue;
+        }
+
+        for (const finding of agentResult.findings) {
+          const severityColor =
+            finding.severity === "critical"
+              ? chalk.red
+              : finding.severity === "warning"
+                ? chalk.yellow
+                : chalk.blue;
+
+          const severity = severityColor(
+            `[${finding.severity.toUpperCase()}]`
+          );
+
+          console.log(`     ${severity} ${finding.title}`);
+          console.log(chalk.dim(`           ${finding.file}`));
+          console.log(chalk.dim(`           ${finding.description}`));
+          console.log();
+        }
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      auditSpinner.fail(`Audit request failed: ${message}`);
+      process.exit(1);
+    }
+
+    return;
+  }
+
+  // ── Diff / PR Mode (existing behavior) ──
 
   // 2. Build the review payload
   let body: Record<string, string | number>;
@@ -83,6 +186,7 @@ export async function reviewCommand(options: {
       if (!diff.trim()) {
         diffSpinner.fail("No changes detected (git diff is empty)");
         printInfo("Stage changes with `git add` or make modifications first.");
+        printInfo("Tip: Use `pulse review --all` to scan the entire repository.");
         process.exit(1);
       }
 

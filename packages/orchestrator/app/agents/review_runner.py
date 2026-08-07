@@ -64,7 +64,7 @@ async def run_review(request: ReviewRequest) -> ReviewAPIResponse:
     Returns:
         ReviewAPIResponse with all agent results
     """
-    review_id = str(uuid.uuid4())[:8]
+    review_id = request.review_id or str(uuid.uuid4())[:8]
     logger.info(f"Review {review_id} started — source: {request.source.value}")
 
     # ── Emit: review started ──

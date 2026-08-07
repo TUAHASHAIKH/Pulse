@@ -35,11 +35,12 @@ from app.ws.socket_server import socket_app
 from app.models.webhook_events import HealthResponse
 from app.models.agent_models import (
     ReviewRequest, ReviewSource, ReviewAPIRequest, ReviewAPIResponse,
+    FullAuditAPIRequest,
     FixApplicationRequest, FixApplicationResponse, FixDeliveryMethod,
 )
 from app.agents.review_runner import run_review, get_review
 from app.agents import fix_applicator
-from app import settings_store
+from app import settings_store, state_tracker
 from app.utils.logger import setup_logger
 
 logger = setup_logger("pulse.main")
@@ -230,6 +231,116 @@ async def api_review(request: ReviewAPIRequest):
         )
 
     return await run_review(review_request)
+
+
+@app.post("/api/review/full", response_model=ReviewAPIResponse, tags=["Review"])
+async def api_full_audit(request: FullAuditAPIRequest = FullAuditAPIRequest()):
+    """
+    Run a full repository audit.
+
+    Scans all source code files in the project, comparing SHA-256 hashes
+    against .pulse/state.json to skip unchanged files (unless force=True).
+
+    Files are batched to fit within LLM context limits, and each batch
+    runs through the full LangGraph multi-agent pipeline.
+    """
+    project_root = get_project_root() or str(Path.cwd())
+
+    # Determine which files need scanning
+    files_to_scan, stats = state_tracker.get_files_needing_scan(
+        project_root, force_full=request.force
+    )
+
+    if not files_to_scan:
+        return ReviewAPIResponse(
+            status="completed",
+            message=(
+                f"All {stats['files_total']} source files are up to date — "
+                f"no changes since last audit. Use force=true to re-scan everything."
+            ),
+            scan_stats=stats,
+        )
+
+    # Read file contents and build batches
+    file_pairs = state_tracker.build_file_content_payload(files_to_scan, project_root)
+    batches = state_tracker.batch_files_by_size(file_pairs)
+
+    logger.info(
+        f"Full audit: {len(file_pairs)} files in {len(batches)} batch(es)"
+    )
+
+    # Run each batch through the review pipeline
+    all_results = []
+    all_repairs = []
+    review_id = ""
+    root = Path(project_root).resolve()
+    pulse_state = state_tracker.load_state()
+
+    import uuid
+    shared_review_id = str(uuid.uuid4())[:8]
+
+    for batch_idx, batch in enumerate(batches):
+        logger.info(f"Processing batch {batch_idx + 1}/{len(batches)} ({len(batch)} files)")
+
+        # Build a synthetic diff-like payload from file contents
+        content_parts = []
+        changed_files = []
+        for rel_path, content in batch:
+            content_parts.append(f"## File: {rel_path}\n```\n{content}\n```")
+            changed_files.append(rel_path)
+
+        combined_content = "\n\n".join(content_parts)
+
+        review_request = ReviewRequest(
+            review_id=shared_review_id,
+            diff=combined_content,
+            changed_files=changed_files,
+            source=ReviewSource.FULL_AUDIT,
+        )
+
+        response = await run_review(review_request)
+        review_id = response.review_id
+        all_results.extend(response.results)
+        all_repairs.extend(response.repair_results)
+
+        # Update state for each file in this batch
+        for rel_path, _content in batch:
+            filepath = root / rel_path
+            sha = state_tracker.file_sha256(filepath)
+            # Count findings for this file
+            file_findings = 0
+            for result in response.results:
+                for finding in result.findings:
+                    if finding.file == rel_path:
+                        file_findings += 1
+            state_tracker.update_file_state(pulse_state, rel_path, sha, file_findings)
+
+    # Save updated state
+    from datetime import datetime, timezone
+    pulse_state["last_scan"] = datetime.now(timezone.utc).isoformat()
+    pulse_state["scan_mode"] = "full" if request.force else "incremental"
+    state_tracker.save_state(pulse_state)
+
+    # Build summary
+    total_findings = sum(len(r.findings) for r in all_results)
+    total_repairs = sum(1 for r in all_repairs if r.status.value == "succeeded")
+    message = (
+        f"Full audit complete: scanned {stats['files_to_scan']} files "
+        f"({stats['files_skipped']} unchanged skipped, "
+        f"{stats['files_oversized']} oversized skipped). "
+        f"{total_findings} issue(s) found across {len(all_results)} agent runs"
+    )
+    if total_repairs:
+        message += f", {total_repairs} fix(es) available"
+
+    return ReviewAPIResponse(
+        status="completed",
+        review_id=review_id,
+        results=all_results,
+        repair_results=all_repairs,
+        message=message,
+        scan_stats=stats,
+    )
 
 
 @app.get("/health", response_model=HealthResponse, tags=["System"])
