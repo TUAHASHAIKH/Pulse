@@ -3,15 +3,16 @@ Pulse Orchestrator — LangGraph Review Graph
 
 Defines the agent execution graph:
 
-  START → architect → [security, performance, quality] → repair_gate → repair → END
-                                                              │
-                                                              └─(no criticals)→ END
+  START → architect → [security, performance, quality] → dedup → repair_gate → repair → END
+                                                                    │
+                                                                    └─(no criticals)→ END
 
 The graph coordinates:
   1. Architect Agent decides which reviewers to run
   2. Reviewer agents run in parallel (fan-out)
-  3. Repair gate checks if any critical findings exist
-  4. Repair node generates and tests fixes for critical findings
+  3. Dedup node removes cross-agent duplicate findings
+  4. Repair gate checks if any critical findings exist
+  5. Repair node generates and tests fixes for critical findings
 """
 
 import time
@@ -19,6 +20,7 @@ from typing import Any
 from langgraph.graph import StateGraph, START, END
 from app.graph.state import ReviewState
 from app.agents import architect_agent, security_agent, performance_agent, code_quality_agent
+from app.agents.dedup import deduplicate_findings
 from app.agents.repair_runner import run_repair
 from app.models.agent_models import Severity, RepairResult
 from app.settings_store import get_setting
@@ -44,6 +46,23 @@ async def performance_node(state: ReviewState):
 async def quality_node(state: ReviewState):
     res = await code_quality_agent.run(state["diff"], state["changed_files"])
     return {"results": [res]}
+
+
+async def dedup_node(state: ReviewState):
+    """
+    Deduplicate findings across all agents.
+
+    This node runs after all reviewer agents complete and before
+    the repair gate. It removes cross-agent duplicates (e.g., the
+    same console.log flagged by both performance and quality agents).
+    """
+    results = state.get("results", [])
+    deduped = deduplicate_findings(results)
+    # Mark the first result with a sentinel so the custom reducer
+    # knows to REPLACE the entire list instead of appending.
+    if deduped:
+        object.__setattr__(deduped[0], "_dedup_replace", True)
+    return {"results": deduped}
 
 
 async def repair_gate_node(state: ReviewState):
@@ -145,6 +164,7 @@ def build_review_graph():
     builder.add_node("security", security_node)
     builder.add_node("performance", performance_node)
     builder.add_node("quality", quality_node)
+    builder.add_node("dedup", dedup_node)
     builder.add_node("repair_gate", repair_gate_node)
     builder.add_node("repair", repair_node)
 
@@ -165,12 +185,15 @@ def build_review_graph():
         }
     )
 
-    # 3. All reviewer agents fan-in to the repair gate
-    builder.add_edge("security", "repair_gate")
-    builder.add_edge("performance", "repair_gate")
-    builder.add_edge("quality", "repair_gate")
+    # 3. All reviewer agents fan-in to the dedup node
+    builder.add_edge("security", "dedup")
+    builder.add_edge("performance", "dedup")
+    builder.add_edge("quality", "dedup")
 
-    # 4. Repair gate decides whether to repair or skip to END
+    # 4. Dedup node feeds into the repair gate
+    builder.add_edge("dedup", "repair_gate")
+
+    # 5. Repair gate decides whether to repair or skip to END
     builder.add_conditional_edges(
         "repair_gate",
         _should_repair,
@@ -180,7 +203,7 @@ def build_review_graph():
         }
     )
 
-    # 5. Repair node goes to END
+    # 6. Repair node goes to END
     builder.add_edge("repair", END)
 
     return builder.compile()
