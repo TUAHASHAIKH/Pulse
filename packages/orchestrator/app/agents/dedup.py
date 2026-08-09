@@ -308,7 +308,9 @@ def _pick_winner(
 def _is_file_deletion(finding: Finding) -> bool:
     """Detect if a finding suggests removing or deleting the entire file."""
     text = (finding.title + " " + (finding.suggested_fix or "")).lower()
-    return bool(re.search(r'\b(remove|removed|removes|removing|delete|deleted|deletes|deleting)\b.*(file|page|route)', text))
+    has_remove = bool(re.search(r'\b(remove|removed|removes|removing|delete|deleted|deletes|deleting)\b', text))
+    has_file = bool(re.search(r'\b(file|page|route)\b', text))
+    return has_remove and has_file
 
 
 def _merge_findings(a: Finding, b: Finding) -> Finding:
