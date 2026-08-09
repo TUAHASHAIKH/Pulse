@@ -1,14 +1,19 @@
 """
-Pulse Orchestrator — Cross-Agent Finding Deduplication
+Pulse Orchestrator — Finding Deduplication
 
 After all reviewer agents (security, performance, quality) run in parallel,
-their findings may overlap. For example, a `console.log` in production code
-might be flagged by both the Performance Agent and the Code Quality Agent.
+their findings may overlap — both across agents AND within a single agent.
+For example:
+  - A `console.log` flagged by both Performance and Code Quality
+  - The same `useMemo` issue flagged 3 times by the Performance Agent
+    with slightly different titles
 
 This module provides a deterministic, zero-LLM-cost deduplication step that:
-  1. Compares every pair of findings across agents
+  1. Compares every pair of findings (cross-agent AND within-agent)
   2. Marks two findings as duplicates if they share the same file,
-     are within ±5 lines, and have similar titles (60%+ word overlap)
+     are within ±5 lines, AND either:
+     a. Have similar titles (40%+ word overlap), OR
+     b. Have similar suggested fixes (targeting the same code)
   3. Keeps the "best" version based on severity, domain ownership,
      and confidence score
   4. Returns cleaned AgentResult lists with duplicates removed
@@ -26,7 +31,13 @@ logger = setup_logger("pulse.dedup")
 
 LINE_PROXIMITY = 5  # findings within ±5 lines are candidates for dedup
 
-TITLE_SIMILARITY_THRESHOLD = 0.60  # 60% word overlap required
+TITLE_SIMILARITY_THRESHOLD = 0.40  # 40% word overlap required
+
+FIX_SIMILARITY_THRESHOLD = 0.50  # 50% word overlap in suggested_fix
+
+HIGH_FIX_SIMILARITY_THRESHOLD = 0.80  # 80% fix overlap → bypass line proximity check
+
+CODE_IDENT_SIMILARITY_THRESHOLD = 0.40  # 40% code-identifier overlap → bypass line check
 
 # Which agent "owns" which finding categories
 DOMAIN_OWNERSHIP = {
@@ -101,29 +112,142 @@ def _title_similarity(title_a: str, title_b: str) -> float:
     return len(intersection) / len(union)
 
 
+def _fix_similarity(fix_a: str, fix_b: str) -> float:
+    """
+    Compare two suggested_fix strings by extracting significant code tokens.
+
+    This catches cases where titles are completely different but the fixes
+    target the exact same code (e.g., both changing `[search, category]`
+    to `[debouncedSearch, category]`).
+    """
+    if not fix_a or not fix_b:
+        return 0.0
+
+    # Extract code-like tokens (identifiers, operators)
+    tokens_a = set(re.findall(r"[a-zA-Z_][a-zA-Z0-9_]*", fix_a))
+    tokens_b = set(re.findall(r"[a-zA-Z_][a-zA-Z0-9_]*", fix_b))
+
+    if not tokens_a or not tokens_b:
+        return 0.0
+
+    intersection = tokens_a & tokens_b
+    union = tokens_a | tokens_b
+
+    return len(intersection) / len(union)
+
+
+def _extract_code_identifiers(finding: Finding) -> set[str]:
+    """
+    Extract code-specific identifiers from a finding's title, explanation,
+    and suggested_fix.
+
+    Pulls out camelCase, PascalCase, and snake_case tokens that represent
+    actual variable/function/class names. These are much more specific
+    than generic English words and serve as a strong dedup signal.
+
+    For example, from "useMemo dependency array omits debouncedSearch":
+      → {'useMemo', 'debouncedSearch'}
+    """
+    combined = " ".join(filter(None, [
+        finding.title,
+        finding.explanation,
+        finding.suggested_fix,
+    ]))
+
+    # Match camelCase, PascalCase, snake_case identifiers (min 2 chars)
+    # camelCase/PascalCase: at least one lowercase followed by uppercase
+    camel = set(re.findall(r'\b[a-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]*\b', combined))
+    # PascalCase: starts uppercase, has lowercase
+    pascal = set(re.findall(r'\b[A-Z][a-z][a-zA-Z0-9]*\b', combined))
+    # snake_case: word_word
+    snake = set(re.findall(r'\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b', combined))
+
+    # Combine all code identifiers
+    idents = camel | pascal | snake
+
+    # Filter out common English words that happen to match PascalCase
+    noise = {
+        'The', 'This', 'That', 'Each', 'Every', 'More', 'Change',
+        'Fixed', 'Updated', 'Moved', 'Added', 'Removed', 'Used',
+        'Instead', 'While', 'After', 'Before', 'Inside', 'Also',
+        'Combined', 'Causing', 'Running', 'Using', 'Importantly',
+        'Expensive', 'Memoize', 'Reduce', 'Compute', 'Ensure', 'Ensuring',
+        'Actually', 'Raw', 'State', 'Update', 'Value', 'Array', 'Incorrectly',
+        'Downstream', 'Pipeline', 'Aggregate', 'Nested', 'Loop', 'Outer', 'Inner',
+        'Filter', 'Sort', 'Map', 'Object', 'Function', 'Return', 'Callback',
+    }
+    idents -= noise
+
+    return idents
+
+
+def _code_ident_similarity(a: Finding, b: Finding) -> float:
+    """
+    Compare the code identifiers mentioned in two findings.
+
+    If both findings mention the same variable/function names
+    (e.g., 'debouncedSearch', 'useMemo'), they're very likely
+    about the same issue even if their titles are worded differently.
+    """
+    idents_a = _extract_code_identifiers(a)
+    idents_b = _extract_code_identifiers(b)
+
+    if not idents_a or not idents_b:
+        return 0.0
+
+    intersection = idents_a & idents_b
+    union = idents_a | idents_b
+
+    return len(intersection) / len(union)
+
+
 def _is_duplicate(a: Finding, b: Finding) -> bool:
     """
     Determine whether two findings are duplicates.
 
-    Criteria (ALL must match):
-      1. Same file path (exact match)
-      2. Line numbers within ±LINE_PROXIMITY
-      3. Title similarity >= TITLE_SIMILARITY_THRESHOLD
+    Three-tier criteria:
+
+    Tier 1 (strong signal — bypasses line check):
+      Same file + high suggested_fix similarity (>= 80%)
+
+    Tier 2 (code identity — bypasses line check):
+      Same file + high code-identifier overlap (>= 50%)
+      Catches cases where LLMs describe the same useMemo/debouncedSearch
+      issue with completely different English prose.
+
+    Tier 3 (standard check):
+      Same file + line proximity (±5) + at least ONE of:
+        a. Title similarity >= 40%
+        b. Suggested fix similarity >= 50%
     """
-    # 1. Same file
+    # Must be the same file
     if a.file != b.file:
         return False
 
-    # 2. Line proximity
+    # Tier 1: Near-identical fixes → always duplicate regardless of line distance
+    fix_sim = _fix_similarity(a.suggested_fix or "", b.suggested_fix or "")
+    if fix_sim >= HIGH_FIX_SIMILARITY_THRESHOLD:
+        return True
+
+    # Tier 2: Same code identifiers → same underlying issue
+    ident_sim = _code_ident_similarity(a, b)
+    if ident_sim >= CODE_IDENT_SIMILARITY_THRESHOLD:
+        return True
+
+    # Tier 3: Line proximity required
     if abs(a.line - b.line) > LINE_PROXIMITY:
         return False
 
-    # 3. Title similarity
-    similarity = _title_similarity(a.title, b.title)
-    if similarity < TITLE_SIMILARITY_THRESHOLD:
-        return False
+    # 3a. Title similarity
+    title_sim = _title_similarity(a.title, b.title)
+    if title_sim >= TITLE_SIMILARITY_THRESHOLD:
+        return True
 
-    return True
+    # 3b. Moderate fix similarity
+    if fix_sim >= FIX_SIMILARITY_THRESHOLD:
+        return True
+
+    return False
 
 
 def _get_domain_owner(finding: Finding) -> str | None:
@@ -181,73 +305,141 @@ def _pick_winner(
     return finding_a, agent_a
 
 
+def _is_file_deletion(finding: Finding) -> bool:
+    """Detect if a finding suggests removing or deleting the entire file."""
+    text = (finding.title + " " + (finding.suggested_fix or "")).lower()
+    return bool(re.search(r'\b(remove|removed|removes|removing|delete|deleted|deletes|deleting)\b.*(file|page|route)', text))
+
+
+def _merge_findings(a: Finding, b: Finding) -> Finding:
+    """Merge two nearby findings into a Compound Finding."""
+    sev_a = SEVERITY_RANK.get(a.severity, 0)
+    sev_b = SEVERITY_RANK.get(b.severity, 0)
+    merged_severity = a.severity if sev_a > sev_b else b.severity
+    
+    new_title = a.title if a.title.startswith("Multiple Issues") else f"Multiple Issues: {a.title} & {b.title}"
+    if len(new_title) > 120:
+        new_title = new_title[:117] + "..."
+
+    # If it's already a compound finding, append without numbering
+    prefix_a = "" if a.title.startswith("Multiple Issues") else "1) "
+    prefix_b = "" if b.title.startswith("Multiple Issues") else ("2) " if not a.title.startswith("Multiple Issues") else "- ")
+
+    return Finding(
+        file=a.file,
+        line=min(a.line, b.line),
+        severity=merged_severity,
+        category=a.category,
+        title=new_title,
+        explanation=f"{prefix_a}{a.explanation}\n\n{prefix_b}{b.explanation}",
+        suggested_fix=f"{prefix_a}{a.suggested_fix}\n\n{prefix_b}{b.suggested_fix}",
+        confidence=min(a.confidence or 0.0, b.confidence or 0.0)
+    )
+
+
 def deduplicate_findings(results: list[AgentResult]) -> list[AgentResult]:
     """
-    Remove duplicate findings across multiple agent results.
+    Remove duplicate findings and merge conflicting findings across multiple agent results.
 
-    Takes the list of AgentResult objects (one per agent), compares
-    findings cross-agent, and returns a new list with duplicates removed.
-
-    Findings within the SAME agent are never deduplicated (each agent
-    is responsible for its own output quality).
-
-    Returns:
-        New list of AgentResult objects with duplicates removed.
-        The original objects are not modified.
+    Three-Stage Conflict Resolution:
+      1. File-Level Subsumption: If a finding removes a file, discard all other findings for that file.
+      2. Semantic Duplicates: Deduplicate same-issue findings (based on code-idents/fixes).
+      3. Context-Overlap Merging: Combine different issues within 15 lines into one patch.
     """
-    if len(results) <= 1:
+    if not results:
         return results
 
-    # Build a flat list of (finding, agent_name, agent_index, finding_index)
-    all_findings: list[tuple[Finding, str, int, int]] = []
+    # Build a dict grouping findings by file:
+    # {file_path: list of (finding, agent_name, agent_idx, finding_idx)}
+    findings_by_file: dict[str, list[tuple[Finding, str, int, int]]] = {}
+    total_before = 0
     for agent_idx, result in enumerate(results):
         for finding_idx, finding in enumerate(result.findings):
-            all_findings.append((finding, result.agent_name, agent_idx, finding_idx))
+            findings_by_file.setdefault(finding.file, []).append(
+                (finding, result.agent_name, agent_idx, finding_idx)
+            )
+            total_before += 1
 
-    # Track which findings to remove: set of (agent_index, finding_index)
     to_remove: set[tuple[int, int]] = set()
-    total_before = len(all_findings)
+    new_findings_by_agent: dict[int, list[Finding]] = {i: [] for i in range(len(results))}
 
-    # Compare every cross-agent pair
-    for i in range(len(all_findings)):
-        if (all_findings[i][2], all_findings[i][3]) in to_remove:
+    for file_path, file_findings in findings_by_file.items():
+        if not file_findings:
             continue
 
-        for j in range(i + 1, len(all_findings)):
-            if (all_findings[j][2], all_findings[j][3]) in to_remove:
-                continue
+        # --- Stage 2: File-Level Subsumption ---
+        deletion_finding = None
+        for f_tuple in file_findings:
+            if _is_file_deletion(f_tuple[0]):
+                deletion_finding = f_tuple
+                break
 
-            f_a, agent_a, ai, fi = all_findings[i]
-            f_b, agent_b, aj, fj = all_findings[j]
+        if deletion_finding:
+            # Keep the deletion, discard all other findings for this file
+            for f_tuple in file_findings:
+                if f_tuple != deletion_finding:
+                    if f_tuple[3] != -1:
+                        to_remove.add((f_tuple[2], f_tuple[3]))
+                    logger.debug(f"Dedup: '{f_tuple[0].title}' subsumed by file deletion '{deletion_finding[0].title}'")
+            continue  # Skip Stage 1 and 3 for this file
 
-            # Skip same-agent comparisons
-            if agent_a == agent_b:
-                continue
+        # --- Stage 1 & 3: Semantic Duplicates & Context-Overlap Merging ---
+        active = list(file_findings)
+        changed = True
+        while changed:
+            changed = False
+            for i in range(len(active)):
+                if changed: break
+                for j in range(i + 1, len(active)):
+                    f_a, agent_a, ai, fi = active[i]
+                    f_b, agent_b, aj, fj = active[j]
 
-            if _is_duplicate(f_a, f_b):
-                winner, winner_agent = _pick_winner(f_a, agent_a, f_b, agent_b)
+                    if _is_duplicate(f_a, f_b):
+                        # Stage 1: Semantic duplicate
+                        winner, winner_agent = _pick_winner(f_a, agent_a, f_b, agent_b)
+                        if winner is f_a:
+                            if fj != -1: to_remove.add((aj, fj))
+                            active.pop(j)
+                            logger.debug(f"Dedup: keeping '{f_a.title}', removing duplicate '{f_b.title}'")
+                        else:
+                            if fi != -1: to_remove.add((ai, fi))
+                            active.pop(i)
+                            logger.debug(f"Dedup: keeping '{f_b.title}', removing duplicate '{f_a.title}'")
+                        changed = True
+                        break
 
-                if winner is f_a:
-                    to_remove.add((aj, fj))
-                    logger.debug(
-                        f"Dedup: keeping '{f_a.title}' from {agent_a}, "
-                        f"removing duplicate from {agent_b}"
-                    )
-                else:
-                    to_remove.add((ai, fi))
-                    logger.debug(
-                        f"Dedup: keeping '{f_b.title}' from {agent_b}, "
-                        f"removing duplicate from {agent_a}"
-                    )
-                    break  # f_a was removed, stop comparing it
+                    elif abs(f_a.line - f_b.line) <= 15:
+                        # Stage 3: Context-Overlap Merging
+                        merged_f = _merge_findings(f_a, f_b)
+                        if fi != -1: to_remove.add((ai, fi))
+                        if fj != -1: to_remove.add((aj, fj))
+                        
+                        target_agent_idx = ai if fi != -1 else (aj if fj != -1 else 0)
+                        
+                        active.pop(j)
+                        active.pop(i)
+                        
+                        # Add the compound finding. fi = -1 denotes it is synthesized.
+                        active.append((merged_f, agent_a, target_agent_idx, -1))
+                        logger.debug(f"Dedup: merged overlapping findings into '{merged_f.title}'")
+                        changed = True
+                        break
 
-    # Rebuild results without removed findings
+        # Collect any synthesized findings from this file
+        for f, agent_name, agent_idx, finding_idx in active:
+            if finding_idx == -1:
+                new_findings_by_agent[agent_idx].append(f)
+
+    # Rebuild results without removed findings, and append new compound findings
     new_results = []
+    total_after = 0
     for agent_idx, result in enumerate(results):
         kept_findings = [
             f for finding_idx, f in enumerate(result.findings)
             if (agent_idx, finding_idx) not in to_remove
         ]
+        kept_findings.extend(new_findings_by_agent[agent_idx])
+        total_after += len(kept_findings)
 
         new_result = AgentResult(
             agent_name=result.agent_name,
@@ -259,15 +451,13 @@ def deduplicate_findings(results: list[AgentResult]) -> list[AgentResult]:
         )
         new_results.append(new_result)
 
-    total_after = sum(len(r.findings) for r in new_results)
     removed = total_before - total_after
-
     if removed > 0:
         logger.info(
-            f"Dedup: removed {removed} duplicate(s) from {total_before} findings "
-            f"→ {total_after} unique findings"
+            f"Dedup: consolidated/removed {removed} finding(s) from {total_before} findings "
+            f"→ {total_after} unique/merged findings"
         )
     else:
-        logger.info(f"Dedup: no duplicates found across {total_before} findings")
+        logger.info(f"Dedup: no overlaps found across {total_before} findings")
 
     return new_results
