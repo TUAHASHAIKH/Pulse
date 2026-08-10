@@ -41,6 +41,7 @@ graph TD
 ## ✨ Why Pulse?
 
 - **🔍 Multi-Agent Review Pipeline** — Specialized **Security**, **Performance**, and **Code Quality** agents evaluate every change concurrently, eliminating noisy single-prompt hallucinations.
+- **🧠 3-Stage Smart Deduplication** — Automatically detects semantic duplicates, subsumes redundant findings under file deletions, and merges overlapping context edits so patches apply cleanly without source-code conflicts.
 - **⚡ CLI-First (`pulse-agent`)** — Install once via npm (`npm install -g pulse-agent`) and run `pulse start` anywhere. Pulse automatically creates and caches a Python 3.11+ virtual environment (`.pulse/.venv/`) with zero manual setup.
 - **🔧 Automated Docker Repair** — When a critical issue is found, Pulse boots an isolated Docker container, applies the fix, executes tests, and verifies the patch before presenting it to you.
 - **📊 Interactive Web Dashboard** — A modern React 19 / Next.js real-time UI showing live neural agent thinking, severity filtering (**Critical**, **Warning**, **Info**), and one-click patch application.
@@ -161,9 +162,10 @@ npm run dev
 | 2. Security Agent (E2E) | ✅ | First agent: diff in → findings out → PR comment |
 | 3. Multi-Agent Wiring | ✅ | LangGraph parallel fan-out to Security, Performance, and Quality agents |
 | 4. Repair Agent + Sandbox | ✅ | Docker-based automated fix attempts and code patch generation |
-| 5. Dashboard | ✅ | Next.js real-time UI with live neural graph and findings feed |
-| 6. CLI Packaging | ✅ | `pulse-agent` npm CLI (`pulse start`, `pulse review`, etc.) |
-| 7. Sentinel + Self-Healing | ⬜ | Kubernetes cluster monitoring (stretch goal) |
+| 5. 3-Stage Deduplication | ✅ | Cross-agent conflict resolution, semantic dedup, and patch overlap merging |
+| 6. Dashboard | ✅ | Next.js real-time UI with live neural graph and findings feed |
+| 7. CLI Packaging | ✅ | `pulse-agent` npm CLI (`pulse start`, `pulse review`, etc.) |
+| 8. Sentinel + Self-Healing | ⬜ | Kubernetes cluster monitoring (stretch goal) |
 
 ---
 
