@@ -28,9 +28,11 @@ graph TD
         C --> F[💎 Code Quality Agent]
     end
     
-    D --> G[Socket.io Real-Time Stream]
-    E --> G
-    F --> G
+    D --> DD[🧠 Deduplication Agent]
+    E --> DD
+    F --> DD
+    
+    DD --> G[Socket.io Real-Time Stream]
     
     G --> H[🌐 Next.js Dashboard<br>localhost:3000]
     G --> I[🔧 Repair Agent<br>Docker Sandbox Test & Patch]
