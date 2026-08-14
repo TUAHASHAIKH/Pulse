@@ -88,14 +88,43 @@ export async function initCommand(options: { force?: boolean }): Promise<void> {
     config.github_token = githubToken;
   }
 
-  // 6. Write config
+  // 6. Auto Push Review
+  const wantsPushReview = await confirm({
+    message: "Enable automatic code review before every git push?",
+    default: false,
+  });
+
+  // 7. Write config
   await mkdir(pulseDir, { recursive: true });
   await writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
 
-  // 7. Ensure .pulse/ is in .gitignore
+  // 8. Write settings (for push review toggle)
+  if (wantsPushReview) {
+    const settingsPath = join(pulseDir, "settings.json");
+    const settings: Record<string, unknown> = {
+      auto_review_push: true,
+      block_push: true,
+      auto_repair: true,
+      fix_delivery: "ask",
+      repair_max_attempts: 3,
+    };
+    await writeFile(settingsPath, JSON.stringify(settings, null, 2), "utf-8");
+  }
+
+  // 9. Ensure .pulse/ is in .gitignore
   await ensureGitignore(projectRoot);
 
-  // 8. Success!
+  // 10. Install pre-push hook (if requested)
+  if (wantsPushReview) {
+    try {
+      const { hooksCommand } = await import("./hooks.js");
+      await hooksCommand("install");
+    } catch {
+      printWarning("Could not auto-install hook. Run `pulse hooks install` manually.");
+    }
+  }
+
+  // 11. Success!
   console.log();
   printSuccess("Configuration saved to .pulse/config.json");
   console.log();
@@ -111,6 +140,13 @@ export async function initCommand(options: { force?: boolean }): Promise<void> {
     console.log("    3. Content type:  application/json");
     console.log(`    4. Secret:        ${webhookSecret.slice(0, 8)}...`);
     console.log("    5. Events:        Pull requests");
+  }
+
+  if (wantsPushReview) {
+    console.log();
+    printSuccess("Auto push review enabled!");
+    printInfo("Pulse will review your code before every git push.");
+    printInfo("Disable anytime with: pulse hooks uninstall");
   }
 
   console.log();

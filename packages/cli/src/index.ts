@@ -8,11 +8,13 @@
  *   pulse start    → boots orchestrator + dashboard
  *   pulse init     → interactive setup wizard
  *   pulse review   → trigger a review from the terminal
+ *   pulse review --push → pre-push gate (auto-start, dashboard, confirm)
+ *   pulse hooks    → manage Git hooks for automatic reviews
  *   pulse stop     → graceful shutdown
  *   pulse status   → health check
  *
- * Install globally:  npm i -g pulseai
- * Or use directly:   npx pulseai start
+ * Install globally:  npm i -g pulse-agent
+ * Or use directly:   npx pulse-agent start
  */
 
 import { Command } from "commander";
@@ -21,6 +23,7 @@ import { initCommand } from "./commands/init.js";
 import { reviewCommand } from "./commands/review.js";
 import { stopCommand } from "./commands/stop.js";
 import { statusCommand } from "./commands/status.js";
+import { hooksCommand } from "./commands/hooks.js";
 import { getCliVersion } from "./utils/version.js";
 
 const program = new Command();
@@ -67,6 +70,7 @@ program
   .option("--pr <ref>", "Review a GitHub PR (format: owner/repo#123)")
   .option("--all", "Full repository audit — scan all source files, not just git diff")
   .option("--force", "Re-scan all files even if unchanged since last audit (use with --all)")
+  .option("--push", "Pre-push gate: auto-start dashboard, review changes, confirm push")
   .option("-p, --port <port>", "Orchestrator port", "8000")
   .action(async (opts) => {
     await reviewCommand({
@@ -74,7 +78,18 @@ program
       port: parseInt(opts.port, 10),
       all: opts.all,
       force: opts.force,
+      push: opts.push,
     });
+  });
+
+// ─── pulse hooks ───
+
+program
+  .command("hooks")
+  .description("Manage Git hooks for automatic reviews")
+  .argument("<action>", "install | uninstall | status")
+  .action(async (action: string) => {
+    await hooksCommand(action);
   });
 
 // ─── pulse stop ───

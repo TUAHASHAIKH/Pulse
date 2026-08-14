@@ -28,6 +28,8 @@ DEFAULTS = {
     "fix_delivery": "ask",        # ask | local | pr_comment | branch
     "auto_repair": True,          # auto-run repair on critical findings
     "repair_max_attempts": 3,     # max repair attempts per finding
+    "auto_review_push": False,    # auto-review code before every git push
+    "block_push": True,           # ask "Continue pushing? Y/n" after review
 }
 
 
