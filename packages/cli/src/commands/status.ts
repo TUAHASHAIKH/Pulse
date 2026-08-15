@@ -44,7 +44,7 @@ export async function statusCommand(options: {
     items.push({
       label: "Orchestrator",
       status: "running",
-      detail: `:${orchestratorPort}  (uptime: ${uptime})`,
+      detail: `localhost:${orchestratorPort}  uptime ${uptime}`,
     });
   } catch {
     items.push({
@@ -61,7 +61,7 @@ export async function statusCommand(options: {
       items.push({
         label: "Dashboard",
         status: "running",
-        detail: `:${dashboardPort}`,
+        detail: `localhost:${dashboardPort}`,
       });
     } else {
       throw new Error("not ok");
@@ -80,13 +80,13 @@ export async function statusCommand(options: {
     items.push({
       label: "Docker",
       status: "running",
-      detail: "Available (repair agent enabled)",
+      detail: "Available (sandbox enabled)",
     });
   } catch {
     items.push({
       label: "Docker",
       status: "warning",
-      detail: "Not found (repair agent disabled)",
+      detail: "Not found (sandbox disabled)",
     });
   }
 
@@ -96,13 +96,13 @@ export async function statusCommand(options: {
     items.push({
       label: "Config",
       status: "running",
-      detail: ".pulse/config.json ✓",
+      detail: ".pulse/config.json",
     });
   } else {
     items.push({
       label: "Config",
       status: "warning",
-      detail: 'Not found — run "pulse init"',
+      detail: "Not found — run pulse init",
     });
   }
 

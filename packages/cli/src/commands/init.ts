@@ -10,7 +10,18 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { input, select, confirm, password } from "@inquirer/prompts";
-import { printBanner, printSuccess, printWarning, printInfo, printError } from "../utils/ui.js";
+import {
+  printBanner,
+  printCompactBanner,
+  printSectionHeader,
+  printSuccess,
+  printWarning,
+  printInfo,
+  printError,
+  printInitSuccess,
+  PULSE_CYAN,
+  PULSE_DIM,
+} from "../utils/ui.js";
 
 // ─── Init Command ───
 
@@ -34,8 +45,8 @@ export async function initCommand(options: { force?: boolean }): Promise<void> {
     }
   }
 
+  printSectionHeader("Project Setup");
   console.log();
-  printInfo("Let's set up Pulse for this project.\n");
 
   // 1. LLM Provider
   const llmProvider = await select({
@@ -124,32 +135,12 @@ export async function initCommand(options: { force?: boolean }): Promise<void> {
     }
   }
 
-  // 11. Success!
-  console.log();
-  printSuccess("Configuration saved to .pulse/config.json");
-  console.log();
-  printInfo("Next steps:");
-  console.log("    1. Run:  pulse start");
-  console.log("    2. Open: http://localhost:3000");
-
-  if (wantsGitHub) {
-    console.log();
-    printInfo("GitHub Webhook Setup:");
-    console.log("    1. Go to your repo → Settings → Webhooks → Add webhook");
-    console.log("    2. Payload URL:   http://YOUR_SERVER:8000/webhook/github");
-    console.log("    3. Content type:  application/json");
-    console.log(`    4. Secret:        ${webhookSecret.slice(0, 8)}...`);
-    console.log("    5. Events:        Pull requests");
-  }
-
-  if (wantsPushReview) {
-    console.log();
-    printSuccess("Auto push review enabled!");
-    printInfo("Pulse will review your code before every git push.");
-    printInfo("Disable anytime with: pulse hooks uninstall");
-  }
-
-  console.log();
+  // 11. Print styled success output
+  printInitSuccess({
+    wantsGitHub,
+    wantsPushReview,
+    webhookSecret,
+  });
 }
 
 // ─── Helpers ───

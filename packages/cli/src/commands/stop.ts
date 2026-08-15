@@ -12,7 +12,7 @@ import {
 } from "../utils/process.js";
 import {
   printBanner,
-  printSuccess,
+  printShutdown,
   printWarning,
   printError,
   createSpinner,
@@ -30,6 +30,7 @@ export async function stopCommand(): Promise<void> {
 
   if (!pidInfo) {
     printWarning("No running Pulse instance found (.pulse/.pid.json not found)");
+    console.log();
     return;
   }
 
@@ -51,8 +52,8 @@ export async function stopCommand(): Promise<void> {
     // 3. Clean up PID file
     await removePidFile(projectRoot);
 
-    spinner.succeed("Pulse stopped");
-    printSuccess("All processes have been shut down.");
+    spinner.succeed("All processes terminated");
+    printShutdown();
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     spinner.fail(`Error stopping Pulse: ${message}`);
@@ -60,7 +61,6 @@ export async function stopCommand(): Promise<void> {
     // Clean up PID file anyway — processes might already be dead
     await removePidFile(projectRoot);
     printWarning("PID file cleaned up. Processes may have already stopped.");
+    console.log();
   }
-
-  console.log();
 }

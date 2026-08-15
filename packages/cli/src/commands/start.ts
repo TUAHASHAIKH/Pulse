@@ -17,7 +17,10 @@ import {
   printWarning,
   printError,
   printInfo,
+  printStep,
+  printShutdown,
   createSpinner,
+  PULSE_DIM,
 } from "../utils/ui.js";
 import { ensureVenv, installDeps } from "../utils/python.js";
 import { runAllChecks } from "../utils/prereqs.js";
@@ -226,13 +229,16 @@ export async function startCommand(options: {
   // 8. Handle graceful shutdown
   const shutdown = async (signal: string) => {
     console.log();
-    printInfo(`\n  Shutting down (${signal})...`);
+
+    const spinner = createSpinner("Shutting down...");
+    spinner.start();
 
     if (orchestrator.pid) await killProcessTree(orchestrator.pid);
     if (dashboard?.pid) await killProcessTree(dashboard.pid);
 
     await removePidFile(projectRoot);
-    printSuccess("Pulse stopped.");
+    spinner.succeed("All processes terminated");
+    printShutdown();
     process.exit(0);
   };
 

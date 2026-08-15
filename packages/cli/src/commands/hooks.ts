@@ -17,12 +17,19 @@
 import { existsSync } from "node:fs";
 import { readFile, writeFile, unlink, mkdir, chmod } from "node:fs/promises";
 import { join } from "node:path";
+import chalk from "chalk";
 import {
   printBanner,
+  printCompactBanner,
   printSuccess,
   printWarning,
   printError,
   printInfo,
+  printHookStatus,
+  printInfoBox,
+  PULSE_CYAN,
+  PULSE_DIM,
+  PULSE_GRAY,
 } from "../utils/ui.js";
 
 // ─── Constants ───
@@ -68,7 +75,7 @@ export async function hooksCommand(action: string): Promise<void> {
       await uninstallHook(hookPath);
       break;
     case "status":
-      await hookStatus(hookPath);
+      await showHookStatus(hookPath);
       break;
     default:
       printError(`Unknown action: ${action}`);
@@ -91,6 +98,7 @@ async function installHook(
     if (existing.includes(HOOK_MARKER)) {
       printWarning("Pre-push hook is already installed.");
       printInfo("Run `pulse hooks uninstall` to remove it first.");
+      console.log();
       return;
     }
 
@@ -98,11 +106,10 @@ async function installHook(
     printWarning(
       "A pre-push hook already exists and was not created by Pulse."
     );
-    printInfo(
-      "To avoid conflicts, add this line to your existing hook manually:"
-    );
     console.log();
-    console.log("    pulse review --push || exit $?");
+    printInfo("To avoid conflicts, add this line to your existing hook:");
+    console.log();
+    console.log(`    ${chalk.bold("pulse review --push || exit $?")}`);
     console.log();
     return;
   }
@@ -120,14 +127,18 @@ async function installHook(
     // chmod may fail on Windows — that's fine, git handles it
   }
 
+  printInfoBox("HOOK INSTALLED", [
+    { key: "Type", value: "pre-push", color: "cyan" },
+    { key: "Location", value: ".git/hooks/pre-push", color: "dim" },
+    { key: "Trigger", value: "every git push", color: "green" },
+  ]);
+
   console.log();
-  printSuccess("Pre-push hook installed!");
+  printInfo("Pulse will review code before every push");
+  printInfo("Dashboard will open in your browser with live findings");
   console.log();
-  printInfo("Pulse will now automatically review your code before every push.");
-  printInfo("The dashboard will open in your browser with live findings.");
-  console.log();
-  printInfo("To disable: pulse hooks uninstall");
-  printInfo("To toggle:  set auto_review_push in .pulse/settings.json");
+  console.log(`  ${PULSE_DIM("Disable:")}  ${chalk.bold("pulse hooks uninstall")}`);
+  console.log(`  ${PULSE_DIM("Toggle:")}   ${chalk.bold("auto_review_push")} in .pulse/settings.json`);
   console.log();
 }
 
@@ -138,6 +149,7 @@ async function uninstallHook(hookPath: string): Promise<void> {
 
   if (!existsSync(hookPath)) {
     printInfo("No pre-push hook is installed.");
+    console.log();
     return;
   }
 
@@ -146,36 +158,33 @@ async function uninstallHook(hookPath: string): Promise<void> {
   if (!content.includes(HOOK_MARKER)) {
     printWarning("The existing pre-push hook was not created by Pulse.");
     printInfo("Not removing it. Edit .git/hooks/pre-push manually if needed.");
+    console.log();
     return;
   }
 
   await unlink(hookPath);
 
-  console.log();
-  printSuccess("Pre-push hook removed.");
-  printInfo("Pulse will no longer review code before pushing.");
+  printSuccess("Pre-push hook removed");
+  printInfo("Pulse will no longer review code before pushing");
   console.log();
 }
 
 // ─── Status ───
 
-async function hookStatus(hookPath: string): Promise<void> {
+async function showHookStatus(hookPath: string): Promise<void> {
   printBanner();
 
   if (!existsSync(hookPath)) {
-    printInfo("Pre-push hook: not installed");
-    printInfo("Run `pulse hooks install` to enable automatic reviews.");
+    printHookStatus(false, false);
+    printInfo("Run `pulse hooks install` to enable automatic reviews");
     return;
   }
 
   const content = await readFile(hookPath, "utf-8");
 
   if (content.includes(HOOK_MARKER)) {
-    printSuccess("Pre-push hook: installed ✓");
-    printInfo(
-      "Pulse will review your code before every push."
-    );
+    printHookStatus(true, true);
   } else {
-    printWarning("Pre-push hook: exists (but not managed by Pulse)");
+    printHookStatus(true, false);
   }
 }

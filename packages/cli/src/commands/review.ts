@@ -19,11 +19,21 @@ import { fileURLToPath } from "node:url";
 import chalk from "chalk";
 import {
   printBanner,
+  printCompactBanner,
   printSuccess,
   printError,
   printInfo,
   printWarning,
   createSpinner,
+  printReviewSummary,
+  printGuidanceBox,
+  printShutdown,
+  PULSE_CYAN,
+  PULSE_DIM,
+  PULSE_AMBER,
+  PULSE_GREEN,
+  PULSE_RED,
+  PULSE_GRAY,
 } from "../utils/ui.js";
 import { ensureVenv, installDeps } from "../utils/python.js";
 import {
@@ -128,7 +138,6 @@ export async function reviewCommand(options: {
       }
 
       // Display results
-      console.log();
       const results = data.results || [];
 
       if (results.length === 0) {
@@ -136,30 +145,41 @@ export async function reviewCommand(options: {
         return;
       }
 
-      for (const agentResult of results) {
-        console.log(chalk.bold(`  📋 ${agentResult.agent_name}`));
-
-        if (agentResult.findings.length === 0) {
-          console.log(chalk.dim("     No findings"));
-          continue;
+      // Use styled review summary
+      const auditFindings = results.map(r => ({
+        label: r.agent_name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+        count: r.findings.length,
+        icon: r.findings.length === 0 ? "✅" : "🟡",
+      }));
+      let auditTotal = 0;
+      let auditSev = { critical: 0, warning: 0, info: 0 };
+      for (const r of results) {
+        for (const f of r.findings) {
+          auditTotal++;
+          if (f.severity === "critical") auditSev.critical++;
+          else if (f.severity === "warning") auditSev.warning++;
+          else auditSev.info++;
         }
+      }
+      printReviewSummary(auditFindings, 0, auditTotal, auditSev);
+
+      // Detailed findings
+      for (const agentResult of results) {
+        if (agentResult.findings.length === 0) continue;
+
+        console.log();
+        console.log("  " + PULSE_CYAN("▸") + " " + chalk.bold.white(agentResult.agent_name));
 
         for (const finding of agentResult.findings) {
           const severityColor =
-            finding.severity === "critical"
-              ? chalk.red
-              : finding.severity === "warning"
-                ? chalk.yellow
-                : chalk.blue;
+            finding.severity === "critical" ? PULSE_RED
+              : finding.severity === "warning" ? PULSE_AMBER
+              : chalk.blue;
 
-          const severity = severityColor(
-            `[${finding.severity.toUpperCase()}]`
-          );
-
-          console.log(`     ${severity} ${finding.title}`);
-          console.log(chalk.dim(`           ${finding.file}`));
-          console.log(chalk.dim(`           ${finding.description}`));
-          console.log();
+          const badge = severityColor(` ${finding.severity.toUpperCase()} `);
+          console.log(`    ${badge} ${chalk.white(finding.title)}`);
+          console.log(`         ${PULSE_DIM(finding.file)}`);
+          console.log(`         ${PULSE_GRAY(finding.description)}`);
         }
       }
     } catch (err: unknown) {
@@ -259,7 +279,6 @@ export async function reviewCommand(options: {
     reviewSpinner.succeed(`Review complete (ID: ${data.review_id})`);
 
     // 4. Display results
-    console.log();
     const results = data.results || [];
 
     if (results.length === 0) {
@@ -267,30 +286,41 @@ export async function reviewCommand(options: {
       return;
     }
 
-    for (const agentResult of results) {
-      console.log(chalk.bold(`  📋 ${agentResult.agent_name}`));
-
-      if (agentResult.findings.length === 0) {
-        console.log(chalk.dim("     No findings"));
-        continue;
+    // Use styled review summary
+    const diffFindings = results.map(r => ({
+      label: r.agent_name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+      count: r.findings.length,
+      icon: r.findings.length === 0 ? "✅" : "🟡",
+    }));
+    let diffTotal = 0;
+    let diffSev = { critical: 0, warning: 0, info: 0 };
+    for (const r of results) {
+      for (const f of r.findings) {
+        diffTotal++;
+        if (f.severity === "critical") diffSev.critical++;
+        else if (f.severity === "warning") diffSev.warning++;
+        else diffSev.info++;
       }
+    }
+    printReviewSummary(diffFindings, 0, diffTotal, diffSev);
+
+    // Detailed findings
+    for (const agentResult of results) {
+      if (agentResult.findings.length === 0) continue;
+
+      console.log();
+      console.log("  " + PULSE_CYAN("▸") + " " + chalk.bold.white(agentResult.agent_name));
 
       for (const finding of agentResult.findings) {
         const severityColor =
-          finding.severity === "critical"
-            ? chalk.red
-            : finding.severity === "warning"
-              ? chalk.yellow
-              : chalk.blue;
+          finding.severity === "critical" ? PULSE_RED
+            : finding.severity === "warning" ? PULSE_AMBER
+            : chalk.blue;
 
-        const severity = severityColor(
-          `[${finding.severity.toUpperCase()}]`
-        );
-
-        console.log(`     ${severity} ${finding.title}`);
-        console.log(chalk.dim(`           ${finding.file}`));
-        console.log(chalk.dim(`           ${finding.description}`));
-        console.log();
+        const badge = severityColor(` ${finding.severity.toUpperCase()} `);
+        console.log(`    ${badge} ${chalk.white(finding.title)}`);
+        console.log(`         ${PULSE_DIM(finding.file)}`);
+        console.log(`         ${PULSE_GRAY(finding.description)}`);
       }
     }
   } catch (err: unknown) {
@@ -328,9 +358,7 @@ async function handlePushReview(
     process.exit(0);
   }
 
-  console.log();
-  console.log(chalk.hex("#00F0FF").bold("  🫀 Pulse — Pre-Push Review"));
-  console.log(chalk.dim("  ──────────────────────────"));
+  printCompactBanner("Pre-Push Review");
 
   // ── Step 2: Check if orchestrator is already running ──
   let weSpawnedIt = false;
@@ -447,41 +475,19 @@ async function handlePushReview(
 
     reviewSpinner.succeed(`Review complete`);
 
-    // ── Step 6: Print summary ──
-    console.log(chalk.dim("  ──────────────────────────"));
+    // ── Step 6: Print summary using styled box ──
+    const pushFindings = results.map(r => ({
+      label: r.agent_name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+      count: r.findings.length,
+      icon: r.findings.length === 0 ? "✅" : "🟡",
+    }));
 
-    // Print per-agent summary
-    for (const agentResult of results) {
-      const count = agentResult.findings.length;
-      const icon = count === 0 ? "✅" : "🟡";
-      const agentLabel = agentResult.agent_name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-      console.log(`  ${icon} ${agentLabel}: ${count} issue${count !== 1 ? "s" : ""}`);
-    }
-
-    if (successfulRepairs > 0) {
-      console.log(`  🔧 Repair Agent: ${successfulRepairs} fix${successfulRepairs !== 1 ? "es" : ""} generated`);
-    }
-
-    console.log(chalk.dim("  ──────────────────────────"));
-
-    if (totalFindings === 0) {
-      printSuccess("No issues found — your code looks good! 🎉");
-    } else {
-      const parts: string[] = [];
-      if (criticalCount) parts.push(chalk.red(`${criticalCount} critical`));
-      if (warningCount) parts.push(chalk.yellow(`${warningCount} warning`));
-      if (infoCount) parts.push(chalk.blue(`${infoCount} info`));
-
-      console.log(`  📋 ${totalFindings} issue${totalFindings !== 1 ? "s" : ""} found: ${parts.join(" · ")}`);
-
-      if (successfulRepairs > 0) {
-        printInfo("Review the dashboard to apply fixes before pushing.");
-      } else {
-        printInfo("Review the dashboard for details.");
-      }
-    }
-
-    console.log();
+    printReviewSummary(
+      pushFindings,
+      successfulRepairs,
+      totalFindings,
+      { critical: criticalCount, warning: warningCount, info: infoCount }
+    );
 
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -496,25 +502,24 @@ async function handlePushReview(
     if (totalFindings === 0) {
       shouldPush = await askQuestion("Continue pushing?", true);
     } else {
-      console.log(chalk.cyan("  💡 How to handle these findings:"));
-      console.log(chalk.gray("  ───────────────────────────────────────────────────────────"));
-      console.log(`  1. Type ${chalk.bold("'n'")} below to cancel this push.`);
-      console.log(`  2. Apply the desired fixes from the Dashboard.`);
-      console.log(`  3. Run ${chalk.bold("git commit -am 'apply pulse fixes'")} to save them.`);
-      console.log(`  4. Run ${chalk.bold("git push")} again.`);
-      console.log(chalk.gray("  ───────────────────────────────────────────────────────────"));
-      console.log();
+      printGuidanceBox([
+        `Type ${chalk.bold("'n'")} below to cancel this push`,
+        `Open the ${chalk.bold("Dashboard")} and click ${PULSE_CYAN("Apply Locally")} on desired fixes`,
+        `Run ${chalk.bold.white("git add . && git commit -m 'pulse fixes'")}`,
+        `Run ${chalk.bold.white("git push")} again — Pulse will confirm it's clean`,
+      ]);
       
-      shouldPush = await askQuestion("Bypass review and continue pushing anyway?", false);
+      shouldPush = await askQuestion("Bypass and push without fixes?", false);
     }
 
     if (!shouldPush) {
-      printInfo("Push cancelled.");
+      console.log();
+      console.log("  " + PULSE_RED("✖") + "  " + chalk.bold.white("Push blocked") + PULSE_DIM(" — apply fixes and try again"));
       
       // Wait for user to close dashboard if we spawned it
       if (weSpawnedIt) {
         console.log();
-        printInfo("Dashboard is still running so you can apply fixes.");
+        printInfo("Dashboard is still running — apply fixes there");
         const closeIt = await askQuestion("Close the dashboard now?", true);
         if (closeIt) {
           try {
@@ -541,7 +546,7 @@ async function handlePushReview(
         if (pids?.dashboardPid) await killProcessTree(pids.dashboardPid);
       } catch {}
     } else {
-      printInfo("Leaving dashboard running in background.");
+      printInfo("Dashboard running in background — run pulse stop when done");
     }
   }
 
@@ -768,7 +773,7 @@ async function askQuestion(query: string, defaultYes = true): Promise<boolean> {
 
   return new Promise((resolve) => {
     let answered = false;
-    const promptText = chalk.bold(`? ${query}`) + (defaultYes ? chalk.dim(" (Y/n) ") : chalk.dim(" (y/N) "));
+    const promptText = "  " + PULSE_CYAN("?") + " " + chalk.bold.white(query) + (defaultYes ? PULSE_DIM(" (Y/n) ") : PULSE_DIM(" (y/N) "));
     
     rl.question(promptText, (answer) => {
       answered = true;

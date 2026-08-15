@@ -11,7 +11,13 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import net from "node:net";
 import { findPython } from "./python.js";
-import { printSuccess, printWarning, printError } from "./ui.js";
+import {
+  printSuccess,
+  printWarning,
+  printError,
+  printSectionHeader,
+  PULSE_DIM,
+} from "./ui.js";
 
 const execAsync = promisify(exec);
 
@@ -26,7 +32,7 @@ export async function checkPython(): Promise<boolean> {
     const { stdout } = await execAsync(
       `${pythonCmd} -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')"`
     );
-    printSuccess(`Python ${stdout.trim()} found`);
+    printSuccess(`Python ${stdout.trim()}`);
     return true;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -42,12 +48,12 @@ export async function checkPython(): Promise<boolean> {
 export async function checkDocker(): Promise<boolean> {
   try {
     await execAsync("docker info");
-    printSuccess("Docker is available");
+    printSuccess("Docker available (sandbox enabled)");
     return true;
   } catch {
     printWarning(
-      "Docker not found — the Repair Agent will be disabled.\n" +
-      "           Install Docker Desktop from: https://www.docker.com/products/docker-desktop/"
+      "Docker not found — sandbox disabled\n" +
+      "           Install: https://docker.com/products/docker-desktop/"
     );
     return false;
   }
@@ -86,11 +92,11 @@ export function checkConfig(projectRoot: string): boolean {
   const configPath = join(projectRoot, ".pulse", "config.json");
 
   if (existsSync(configPath)) {
-    printSuccess("Configuration found (.pulse/config.json)");
+    printSuccess("Config loaded (.pulse/config.json)");
     return true;
   } else {
     printWarning(
-      'No configuration found. Run "pulse init" to set up your API keys.'
+      'No configuration found — run "pulse init"'
     );
     return false;
   }
@@ -117,19 +123,19 @@ export async function runAllChecks(
   orchestratorPort: number,
   dashboardPort: number
 ): Promise<PrereqResult> {
-  console.log();
+  printSectionHeader("System Check");
 
   const python = await checkPython();
   const docker = await checkDocker();
 
   const orchestratorPortOk = await checkPort(orchestratorPort);
   if (orchestratorPortOk) {
-    printSuccess(`Port ${orchestratorPort} is available (orchestrator)`);
+    printSuccess(`Port ${orchestratorPort} available (orchestrator)`);
   }
 
   const dashboardPortOk = await checkPort(dashboardPort);
   if (dashboardPortOk) {
-    printSuccess(`Port ${dashboardPort} is available (dashboard)`);
+    printSuccess(`Port ${dashboardPort} available (dashboard)`);
   }
 
   const config = checkConfig(projectRoot);
