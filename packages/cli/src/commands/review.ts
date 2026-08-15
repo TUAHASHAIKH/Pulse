@@ -493,11 +493,20 @@ async function handlePushReview(
   // ── Step 7: Ask to continue (if block_push is enabled) ──
   let shouldPush = true;
   if (settings.block_push) {
-    const pushMsg = totalFindings === 0 
-      ? "Continue pushing?" 
-      : "Issues found. If you plan to apply fixes, cancel this push, commit the fixes, and push again. Continue pushing anyway?";
-    
-    shouldPush = await askQuestion(pushMsg, totalFindings === 0);
+    if (totalFindings === 0) {
+      shouldPush = await askQuestion("Continue pushing?", true);
+    } else {
+      console.log(chalk.cyan("  💡 How to handle these findings:"));
+      console.log(chalk.gray("  ───────────────────────────────────────────────────────────"));
+      console.log(`  1. Type ${chalk.bold("'n'")} below to cancel this push.`);
+      console.log(`  2. Apply the desired fixes from the Dashboard.`);
+      console.log(`  3. Run ${chalk.bold("git commit -am 'apply pulse fixes'")} to save them.`);
+      console.log(`  4. Run ${chalk.bold("git push")} again.`);
+      console.log(chalk.gray("  ───────────────────────────────────────────────────────────"));
+      console.log();
+      
+      shouldPush = await askQuestion("Bypass review and continue pushing anyway?", false);
+    }
 
     if (!shouldPush) {
       printInfo("Push cancelled.");
