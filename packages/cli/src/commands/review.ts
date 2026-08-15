@@ -495,7 +495,7 @@ async function handlePushReview(
   if (settings.block_push) {
     const pushMsg = totalFindings === 0 
       ? "Continue pushing?" 
-      : "Issues found. Continue pushing without fixes?";
+      : "Issues found. If you plan to apply fixes, cancel this push, commit the fixes, and push again. Continue pushing anyway?";
     
     shouldPush = await askQuestion(pushMsg, totalFindings === 0);
 
