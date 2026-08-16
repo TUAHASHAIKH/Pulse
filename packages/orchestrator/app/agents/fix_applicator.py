@@ -82,10 +82,12 @@ def _apply_patch_python_fallback(patch: str, project_root: str) -> tuple[bool, l
     """
     lines = patch.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     current_file = None
-    file_hunks = {}  # filename -> list of (old_lines, new_lines)
+    file_hunks = {}  # filename -> list of (old_lines, new_lines, removals, additions)
 
     old_lines = []
     new_lines = []
+    just_removals = []
+    just_additions = []
     in_hunk = False
 
     for line in lines:
@@ -103,24 +105,30 @@ def _apply_patch_python_fallback(patch: str, project_root: str) -> tuple[bool, l
 
         if line.startswith("@@ "):
             if current_file and in_hunk and (old_lines or new_lines):
-                file_hunks[current_file].append((list(old_lines), list(new_lines)))
+                file_hunks[current_file].append((list(old_lines), list(new_lines), list(just_removals), list(just_additions)))
             old_lines = []
             new_lines = []
+            just_removals = []
+            just_additions = []
             in_hunk = True
             continue
 
         if in_hunk and current_file:
             if line.startswith("-"):
-                old_lines.append(line[1:])
+                val = line[1:]
+                old_lines.append(val)
+                just_removals.append(val)
             elif line.startswith("+"):
-                new_lines.append(line[1:])
+                val = line[1:]
+                new_lines.append(val)
+                just_additions.append(val)
             elif line.startswith(" ") or line == "":
                 val = line[1:] if line.startswith(" ") else ""
                 old_lines.append(val)
                 new_lines.append(val)
 
     if current_file and in_hunk and (old_lines or new_lines):
-        file_hunks[current_file].append((list(old_lines), list(new_lines)))
+        file_hunks[current_file].append((list(old_lines), list(new_lines), list(just_removals), list(just_additions)))
 
     if not file_hunks:
         return False, [], "Could not parse filenames from patch"
@@ -144,24 +152,23 @@ def _apply_patch_python_fallback(patch: str, project_root: str) -> tuple[bool, l
             return False, files_changed, f"Could not read {abs_path}: {e}"
 
         original_content = content
-        for old_lines_list, new_lines_list in hunks:
+        for old_lines_list, new_lines_list, removals_list, additions_list in hunks:
             old_text = "\n".join(old_lines_list)
             new_text = "\n".join(new_lines_list)
 
             if old_text in content:
                 content = content.replace(old_text, new_text, 1)
             else:
-                removals = [l for l in old_lines_list if not l.startswith(" ") and l != ""]
-                additions = [l for l in new_lines_list if not l.startswith(" ") and l != ""]
-                if removals:
-                    removals_text = "\n".join(removals)
-                    additions_text = "\n".join(additions)
+                # If exact block with context isn't found, try just the modified lines
+                if removals_list:
+                    removals_text = "\n".join(removals_list)
+                    additions_text = "\n".join(additions_list)
                     if removals_text in content and content.count(removals_text) == 1:
                         content = content.replace(removals_text, additions_text, 1)
                     else:
-                        return False, files_changed, f"Could not locate matching code block in {abs_path.name}"
-                elif additions and not removals:
-                    continue
+                        return False, files_changed, f"Could not locate unique matching code block in {abs_path.name}"
+                elif additions_list and not removals_list:
+                    return False, files_changed, f"Context mismatch for additions in {abs_path.name}"
 
         if content != original_content:
             try:

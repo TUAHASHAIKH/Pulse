@@ -111,7 +111,7 @@ export default function Dashboard() {
           )}
 
           {activeSection === "repairs" && (
-            <RepairPanel repairs={latestRepairs} reviewId={currentReviewId} />
+            <RepairPanel repairs={latestRepairs} reviewId={currentReviewId} reviewSource={currentReview?.source || "cli"} />
           )}
 
           {activeSection === "settings" && <SettingsPanel />}

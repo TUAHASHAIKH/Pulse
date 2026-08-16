@@ -10,9 +10,10 @@ const ORCHESTRATOR_URL = "http://localhost:8000";
 interface RepairPanelProps {
   repairs: RepairResult[];
   reviewId: string;
+  reviewSource?: string;
 }
 
-export function RepairPanel({ repairs, reviewId }: RepairPanelProps) {
+export function RepairPanel({ repairs, reviewId, reviewSource = "cli" }: RepairPanelProps) {
   if (repairs.length === 0) {
     return (
       <div className={styles.container}>
@@ -34,6 +35,7 @@ export function RepairPanel({ repairs, reviewId }: RepairPanelProps) {
           key={`${repair.finding_index}-${i}`}
           repair={repair}
           reviewId={reviewId}
+          reviewSource={reviewSource}
         />
       ))}
     </div>
@@ -45,9 +47,11 @@ export function RepairPanel({ repairs, reviewId }: RepairPanelProps) {
 function RepairCard({
   repair,
   reviewId,
+  reviewSource,
 }: {
   repair: RepairResult;
   reviewId: string;
+  reviewSource: string;
 }) {
   const [showPatch, setShowPatch] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -167,8 +171,8 @@ function RepairCard({
           <button
             className={`${styles.actionBtn} ${styles.btnComment}`}
             onClick={() => applyFix("pr-comment")}
-            disabled={loading}
-            title="Post the fix as a comment on the GitHub PR"
+            disabled={loading || reviewSource !== "webhook"}
+            title={reviewSource !== "webhook" ? "PR Comment is only available for GitHub Webhook reviews." : "Post the fix as a comment on the GitHub PR"}
           >
             <MessageSquare size={14} />
             PR Comment
@@ -176,8 +180,8 @@ function RepairCard({
           <button
             className={`${styles.actionBtn} ${styles.btnBranch}`}
             onClick={() => applyFix("commit-branch")}
-            disabled={loading}
-            title="Commit the fix to a new pulse/fix branch"
+            disabled={loading || reviewSource !== "webhook"}
+            title={reviewSource !== "webhook" ? "Commit to Branch is only available for GitHub Webhook reviews." : "Commit the fix to a new pulse/fix branch"}
           >
             <GitBranch size={14} />
             Commit to Branch
