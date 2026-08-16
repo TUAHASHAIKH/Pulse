@@ -1,10 +1,10 @@
-/* ═══ MetricsPanel ═══ */
+/* ═══ MetricsPanel — Redesigned ═══ */
 
 .container {
   display: flex;
   flex-direction: column;
   gap: var(--sp-6);
-  padding: var(--sp-4) var(--sp-2);
+  padding: var(--sp-6) var(--sp-8);
   height: 100%;
   overflow-y: auto;
 }
@@ -14,156 +14,72 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: var(--sp-2);
+  padding-bottom: var(--sp-5);
   border-bottom: 1px solid var(--nx-border);
 }
 
 .titleGroup {
   display: flex;
-  align-items: center;
-  gap: var(--sp-3);
+  flex-direction: column;
+  gap: 4px;
 }
 
 .title {
-  font-family: var(--font-pixel);
-  font-size: 10px;
-  letter-spacing: 2px;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   color: var(--nx-text);
   text-transform: uppercase;
 }
 
 .subtitle {
   font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--nx-text-dim);
+  font-size: 0.68rem;
+  color: var(--nx-text-ghost);
 }
 
 .liveBadge {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  padding: 4px 10px;
-  background: rgba(0, 240, 255, 0.08);
-  border: 1px solid rgba(0, 240, 255, 0.25);
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-sm);
-  font-family: var(--font-pixel);
-  font-size: 7px;
-  letter-spacing: 1px;
-  color: var(--nx-cyan);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  color: var(--nx-text-dim);
+  text-transform: uppercase;
 }
 
 .liveDot {
-  width: 6px;
-  height: 6px;
-  background: var(--nx-cyan);
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  box-shadow: 0 0 8px var(--nx-cyan);
-  animation: pulseGlow 2s infinite;
+  animation: breathe 2s infinite;
 }
 
-@keyframes pulseGlow {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.85); }
+@keyframes breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
-/* ─── Section Header ─── */
-.sectionTitle {
-  font-family: var(--font-pixel);
-  font-size: 8px;
-  letter-spacing: 1.5px;
-  color: var(--nx-text-dim);
-  text-transform: uppercase;
-  margin-bottom: var(--sp-2);
-}
-
-/* ─── Top Gauges Grid (4 Columns) ─── */
-.gaugesGrid {
+/* ─── Stats Grid (6 cards) ─── */
+.statsGrid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: var(--sp-4);
 }
 
-@media (max-width: 1024px) {
-  .gaugesGrid {
-    grid-template-columns: repeat(2, 1fr);
+@media (max-width: 1100px) {
+  .statsGrid {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
-.gaugeCard {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--sp-5) var(--sp-3);
-  background: rgba(13, 17, 23, 0.65);
-  border: 1px solid var(--nx-border);
-  border-radius: var(--radius-md);
-  position: relative;
-  overflow: hidden;
-  transition: all var(--duration-fast) var(--ease-out);
-}
-
-.gaugeCard:hover {
-  border-color: var(--nx-border-active);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-}
-
-.gauge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--sp-2);
-  position: relative;
-}
-
-.gaugeSvg {
-  display: block;
-}
-
-.gaugeContent {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 90px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.gaugeValue {
-  font-family: var(--font-mono);
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--nx-text);
-}
-
-.gaugeSubtext {
-  font-family: var(--font-pixel);
-  font-size: 6px;
-  color: var(--nx-text-dim);
-  letter-spacing: 0.5px;
-  margin-top: 2px;
-}
-
-.gaugeLabel {
-  font-family: var(--font-pixel);
-  font-size: 8px;
-  letter-spacing: 1.5px;
-  color: var(--nx-text-dim);
-  margin-top: var(--sp-1);
-}
-
-/* ─── Second Grid — Stat Cards (4 Columns) ─── */
-.statsGrid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--sp-4);
-}
-
-@media (max-width: 1024px) {
+@media (max-width: 700px) {
   .statsGrid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -173,74 +89,65 @@
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
-  padding: var(--sp-4);
-  background: rgba(13, 17, 23, 0.65);
+  padding: var(--sp-5) var(--sp-5);
+  background: var(--nx-surface);
   border: 1px solid var(--nx-border);
   border-radius: var(--radius-md);
   position: relative;
   overflow: hidden;
   transition: all var(--duration-fast) var(--ease-out);
+  min-height: 120px;
 }
 
 .statCard:hover {
   border-color: var(--nx-border-active);
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-}
-
-.statTop {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 
 .statLabel {
-  font-family: var(--font-pixel);
-  font-size: 7px;
-  letter-spacing: 1.2px;
-  color: var(--nx-text-dim);
-}
-
-.statBadge {
   font-family: var(--font-mono);
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  font-weight: 600;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  color: var(--nx-text-ghost);
+  text-transform: uppercase;
 }
 
-.statMain {
+.statValueRow {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
+  gap: var(--sp-1);
+  margin-top: var(--sp-1);
 }
 
 .statValue {
   font-family: var(--font-mono);
-  font-size: 24px;
+  font-size: 1.8rem;
   font-weight: 700;
   color: var(--nx-text);
 }
 
-.statSubtext {
+.statSub {
   font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--nx-text-dim);
+  font-size: 0.6rem;
+  color: var(--nx-text-ghost);
+  margin-top: auto;
 }
 
-.statGlowBar {
+.statBar {
   height: 3px;
   width: 100%;
   border-radius: 2px;
-  opacity: 0.6;
-  margin-top: var(--sp-1);
+  margin-top: auto;
 }
 
-/* ─── Third Row — Two Equal Panels (Workload & Health) ─── */
+/* ─── Split Grid (Token + Severity) ─── */
 .splitGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--sp-4);
+  gap: var(--sp-5);
+  flex: 1;
+  min-height: 0;
 }
 
 @media (max-width: 900px) {
@@ -252,196 +159,248 @@
 .panelCard {
   display: flex;
   flex-direction: column;
-  background: rgba(13, 17, 23, 0.65);
+  background: var(--nx-surface);
   border: 1px solid var(--nx-border);
   border-radius: var(--radius-md);
-  padding: var(--sp-5);
-  gap: var(--sp-4);
+  padding: var(--sp-6);
+  gap: var(--sp-5);
 }
 
 .panelHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding-bottom: var(--sp-4);
   border-bottom: 1px solid var(--nx-border);
-  padding-bottom: var(--sp-3);
 }
 
 .panelTitle {
-  font-family: var(--font-pixel);
-  font-size: 8px;
-  letter-spacing: 1.5px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   color: var(--nx-text);
   text-transform: uppercase;
 }
 
-.panelSubtitle {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--nx-text-dim);
+/* ─── Token Summary ─── */
+.tokenSummary {
+  display: flex;
+  align-items: stretch;
+  gap: var(--sp-5);
+  flex: 1;
 }
 
-/* Workload Bars */
-.workloadList {
+.tokenBlock {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
-}
-
-.workloadItem {
-  display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 6px;
 }
 
-.workloadHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.agentName {
+.tokenLabel {
   font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--nx-text);
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  color: var(--nx-text-ghost);
+  text-transform: uppercase;
 }
 
-.agentPercent {
+.tokenValue {
   font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 1.8rem;
+  font-weight: 700;
 }
 
-.progressBarTrack {
+.tokenHint {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  color: var(--nx-text-ghost);
+  text-align: center;
+}
+
+.tokenDivider {
+  width: 1px;
+  background: var(--nx-border);
+  align-self: stretch;
+}
+
+/* Token ratio bar */
+.ratioBarTrack {
+  display: flex;
   width: 100%;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 3px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
   overflow: hidden;
 }
 
-.progressBarFill {
+.ratioBarInput {
   height: 100%;
-  border-radius: 3px;
-  transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
+  background: #00F0FF;
+  border-radius: 4px 0 0 4px;
+  transition: width 0.8s var(--ease-out);
 }
 
-/* System Health Rows */
-.healthList {
+.ratioBarOutput {
+  height: 100%;
+  background: #B026FF;
+  border-radius: 0 4px 4px 0;
+  transition: width 0.8s var(--ease-out);
+}
+
+/* ─── Severity Breakdown ─── */
+.severityGrid {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
+  gap: var(--sp-4);
+  flex: 1;
+  justify-content: center;
 }
 
-.healthRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: var(--radius-sm);
-}
-
-.healthLabel {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--nx-text);
+.severityItem {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
-}
-
-.healthValue {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
-}
-
-.statusOnline {
-  color: #00FF66;
-  background: rgba(0, 255, 102, 0.1);
-  border: 1px solid rgba(0, 255, 102, 0.25);
-}
-
-.statusActive {
-  color: var(--nx-cyan);
-  background: rgba(0, 240, 255, 0.1);
-  border: 1px solid rgba(0, 240, 255, 0.25);
-}
-
-.statusNormal {
-  color: var(--nx-purple);
-  background: rgba(176, 38, 255, 0.1);
-  border: 1px solid rgba(176, 38, 255, 0.25);
-}
-
-/* ─── Bottom Row — Recent Metric Insights Feed ─── */
-.insightsPanel {
-  display: flex;
-  flex-direction: column;
-  background: rgba(13, 17, 23, 0.65);
-  border: 1px solid var(--nx-border);
-  border-radius: var(--radius-md);
-  padding: var(--sp-5);
-  gap: var(--sp-3);
-}
-
-.insightsList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-}
-
-.insightRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: var(--radius-sm);
   transition: all var(--duration-fast) var(--ease-out);
 }
 
-.insightRow:hover {
-  border-color: var(--nx-border-active);
-  background: rgba(255, 255, 255, 0.04);
+.severityItem:hover {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
-.insightLeft {
+.severityDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.severityInfo {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  flex: 1;
+}
+
+.severityCount {
+  font-family: var(--font-mono);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--nx-text);
+}
+
+.severityLabel {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--nx-text-dim);
+}
+
+.severityPct {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--nx-text-ghost);
+}
+
+/* ─── Per-Agent Breakdown ─── */
+.tokenLegend {
+  display: flex;
+  gap: var(--sp-4);
+  font-family: var(--font-mono);
+}
+
+.agentList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.agentRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: var(--sp-4) var(--sp-5);
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.agentRow:hover {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.agentInfo {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
 }
 
-.insightTime {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--nx-text-dim);
+.agentDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
-.insightTag {
-  font-family: var(--font-pixel);
-  font-size: 7px;
-  padding: 3px 6px;
-  border-radius: var(--radius-sm);
-  letter-spacing: 1px;
-}
-
-.insightText {
+.agentName {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
   color: var(--nx-text);
 }
 
-.insightImpact {
+.agentModel {
   font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 0.6rem;
+  color: var(--nx-text-ghost);
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-xs);
+}
+
+.agentStats {
+  display: flex;
+  gap: var(--sp-6);
+  padding-left: 22px;
+}
+
+.agentTokenSplit {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--nx-text-dim);
+}
+
+.agentFindings {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--nx-text-dim);
+}
+
+.agentDuration {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--nx-text-ghost);
+}
+
+.agentBarTrack {
+  width: 100%;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.agentBarFill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.8s var(--ease-out);
 }

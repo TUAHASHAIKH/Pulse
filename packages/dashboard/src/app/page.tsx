@@ -103,13 +103,7 @@ export default function Dashboard() {
           {activeSection === "timeline" && <Timeline events={events} />}
 
           {activeSection === "metrics" && (
-            <MetricsPanel
-              totalReviews={metrics.totalReviews}
-              totalFindings={metrics.totalFindings}
-              criticalCount={metrics.criticalCount}
-              totalTokens={metrics.totalTokens}
-              latestFindings={latestFindings}
-            />
+            <MetricsPanel metrics={metrics} />
           )}
 
           {activeSection === "findings" && (

@@ -252,17 +252,32 @@ export function usePulseSocket() {
       (acc, e) => acc + (e.payload.total_findings || 0),
       0
     );
-    const totalTokens = reviewCompletions.reduce((acc, e) => {
+
+    let inputTokens = 0;
+    let outputTokens = 0;
+    const agentTokens: Record<string, { input: number; output: number; model: string; duration: number; findings: number }> = {};
+
+    for (const e of reviewCompletions) {
       const results: AgentResult[] = e.payload.results || [];
-      return (
-        acc +
-        results.reduce(
-          (a, r) =>
-            a + (r.token_usage?.input_tokens || 0) + (r.token_usage?.output_tokens || 0),
-          0
-        )
-      );
-    }, 0);
+      for (const r of results) {
+        const inT = r.token_usage?.input_tokens || 0;
+        const outT = r.token_usage?.output_tokens || 0;
+        inputTokens += inT;
+        outputTokens += outT;
+
+        const name = r.agent_name || "unknown";
+        if (!agentTokens[name]) {
+          agentTokens[name] = { input: 0, output: 0, model: r.token_usage?.model || "", duration: 0, findings: 0 };
+        }
+        agentTokens[name].input += inT;
+        agentTokens[name].output += outT;
+        agentTokens[name].duration += r.duration_seconds || 0;
+        agentTokens[name].findings += r.findings?.length || 0;
+        if (r.token_usage?.model) agentTokens[name].model = r.token_usage.model;
+      }
+    }
+
+    const totalTokens = inputTokens + outputTokens;
 
     const criticalCount = reviewCompletions.reduce((acc, e) => {
       const results: AgentResult[] = e.payload.results || [];
@@ -275,11 +290,42 @@ export function usePulseSocket() {
       );
     }, 0);
 
+    const warningCount = reviewCompletions.reduce((acc, e) => {
+      const results: AgentResult[] = e.payload.results || [];
+      return (
+        acc +
+        results.reduce(
+          (a, r) => a + (r.findings?.filter((f) => f.severity === "warning").length || 0),
+          0
+        )
+      );
+    }, 0);
+
+    // Real repair counts from events
+    const repairsSucceeded = events.filter((e) => e.type === "repair_succeeded").length;
+    const repairsFailed = events.filter((e) => e.type === "repair_failed").length;
+
+    // Total review duration from actual events
+    let totalDuration = 0;
+    for (const e of reviewCompletions) {
+      const results: AgentResult[] = e.payload.results || [];
+      for (const r of results) {
+        totalDuration += r.duration_seconds || 0;
+      }
+    }
+
     return {
       totalReviews,
       totalFindings,
       totalTokens,
+      inputTokens,
+      outputTokens,
       criticalCount,
+      warningCount,
+      repairsSucceeded,
+      repairsFailed,
+      agentTokens,
+      totalDuration,
     };
   }, [events]);
 
