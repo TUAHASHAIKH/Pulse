@@ -138,7 +138,7 @@ if (existsSync(monorepoPkgSrc) || existsSync(standaloneSrc)) {
 // ─── 4. Build CLI TypeScript ───
 
 log("Compiling CLI TypeScript...");
-run("npx tsc", CLI_ROOT);
+run("npm run build", CLI_ROOT);
 
 // ─── Done ───
 

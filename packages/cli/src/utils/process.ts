@@ -171,7 +171,13 @@ export async function removePidFile(projectRoot: string): Promise<void> {
   const pidPath = getPidFilePath(projectRoot);
 
   if (existsSync(pidPath)) {
-    await unlink(pidPath);
+    try {
+      await unlink(pidPath);
+    } catch (e: any) {
+      if (e.code !== "ENOENT") {
+        throw e;
+      }
+    }
   }
 }
 
