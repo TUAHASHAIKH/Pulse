@@ -9,19 +9,33 @@ interface Settings {
   fix_delivery: "ask" | "local" | "pr_comment" | "branch";
   auto_repair: boolean;
   repair_max_attempts: number;
+  auto_review_push: boolean;
+  block_push: boolean;
 }
+
+const DEFAULTS: Settings = {
+  fix_delivery: "ask",
+  auto_repair: true,
+  repair_max_attempts: 3,
+  auto_review_push: false,
+  block_push: true,
+};
 
 export function SettingsPanel() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     fetch(`${ORCHESTRATOR_URL}/api/settings`)
       .then((res) => res.json())
       .then((data) => {
-        setSettings(data);
+        // Merge with defaults so new keys are always present
+        setSettings({ ...DEFAULTS, ...data });
         setLoading(false);
       })
       .catch((err) => {
@@ -43,13 +57,13 @@ export function SettingsPanel() {
       });
       const data = await res.json();
       if (data.success) {
-        setFeedback("✅ Settings saved successfully");
+        setFeedback({ type: "success", message: "Settings saved" });
         setTimeout(() => setFeedback(null), 3000);
       } else {
-        setFeedback("❌ Failed to save settings");
+        setFeedback({ type: "error", message: "Failed to save" });
       }
     } catch (err) {
-      setFeedback(`❌ Error: ${err}`);
+      setFeedback({ type: "error", message: `Error: ${err}` });
     } finally {
       setSaving(false);
     }
@@ -65,65 +79,125 @@ export function SettingsPanel() {
 
   return (
     <div className={styles.container}>
-      <h2 className={styles.title}>⚙️ Settings</h2>
+      {/* ─── Header ─── */}
+      <div className={styles.header}>
+        <div className={styles.titleRow}>
+          <div className={styles.titleIcon}>⚙</div>
+          <h2 className={styles.title}>Settings</h2>
+        </div>
+        <p className={styles.subtitle}>
+          Configure how Pulse reviews, repairs, and delivers fixes
+        </p>
+      </div>
 
-      {/* Fix Delivery Section */}
+      {/* ═══════════════════════════════════════════
+          SECTION 1: Git Push Integration
+          ═══════════════════════════════════════════ */}
       <div className={styles.section}>
-        <h3 className={styles.sectionTitle}>Fix Delivery</h3>
+        <div className={styles.sectionHeader}>
+          <div className={`${styles.sectionIcon} ${styles.sectionIconGit}`}>
+            ⎇
+          </div>
+          <h3 className={styles.sectionTitle}>Git Push Integration</h3>
+        </div>
         <p className={styles.sectionDesc}>
-          When the Repair Agent produces a verified fix, how should it be delivered?
+          Automatically review code before every git push using a pre-push hook
         </p>
 
-        <div className={styles.radioGroup}>
-          {[
-            { id: "ask", label: "Ask every time (show buttons in dashboard)" },
-            { id: "local", label: "Always apply locally (git apply)" },
-            { id: "pr_comment", label: "Always post as PR comment" },
-            { id: "branch", label: "Always commit to a new branch" },
-          ].map((option) => (
-            <label
-              key={option.id}
-              className={`${styles.radioOption} ${
-                settings.fix_delivery === option.id ? styles.radioOptionSelected : ""
+        {/* Auto Review on Push */}
+        <div className={styles.toggleRow}>
+          <div className={styles.toggleInfo}>
+            <span className={styles.toggleLabel}>
+              Auto-review before push
+            </span>
+            <span className={styles.toggleHint}>
+              Runs Pulse review automatically when you run git push
+            </span>
+          </div>
+          <button
+            className={`${styles.toggleSwitch} ${
+              settings.auto_review_push ? styles.toggleSwitchActive : ""
+            }`}
+            onClick={() =>
+              setSettings({
+                ...settings,
+                auto_review_push: !settings.auto_review_push,
+              })
+            }
+          >
+            <div
+              className={`${styles.toggleDot} ${
+                settings.auto_review_push ? styles.toggleDotActive : ""
               }`}
-            >
-              <input
-                type="radio"
-                name="fix_delivery"
-                value={option.id}
-                checked={settings.fix_delivery === option.id}
-                onChange={(e) =>
-                  setSettings({ ...settings, fix_delivery: e.target.value as any })
-                }
-                className={styles.radioInput}
-              />
-              <span
-                className={`${styles.radioLabel} ${
-                  settings.fix_delivery === option.id ? styles.radioLabelSelected : ""
-                }`}
-              >
-                {option.label}
-              </span>
-            </label>
-          ))}
+            />
+          </button>
+        </div>
+
+        {/* Block Push on Findings */}
+        <div className={styles.toggleRow}>
+          <div className={styles.toggleInfo}>
+            <span className={styles.toggleLabel}>
+              Block push when issues found
+            </span>
+            <span className={styles.toggleHint}>
+              Prompts &quot;Continue pushing?&quot; when findings are detected.
+              When off, push continues automatically
+            </span>
+          </div>
+          <button
+            className={`${styles.toggleSwitch} ${
+              settings.block_push ? styles.toggleSwitchActive : ""
+            }`}
+            onClick={() =>
+              setSettings({
+                ...settings,
+                block_push: !settings.block_push,
+              })
+            }
+          >
+            <div
+              className={`${styles.toggleDot} ${
+                settings.block_push ? styles.toggleDotActive : ""
+              }`}
+            />
+          </button>
         </div>
       </div>
 
-      {/* Repair Behavior Section */}
+      {/* ═══════════════════════════════════════════
+          SECTION 2: Repair Behavior
+          ═══════════════════════════════════════════ */}
       <div className={styles.section}>
-        <h3 className={styles.sectionTitle}>Repair Behavior</h3>
+        <div className={styles.sectionHeader}>
+          <div className={`${styles.sectionIcon} ${styles.sectionIconRepair}`}>
+            🔧
+          </div>
+          <h3 className={styles.sectionTitle}>Repair Agent</h3>
+        </div>
         <p className={styles.sectionDesc}>
-          Configure how the Repair Agent operates.
+          Configure how the Repair Agent generates and attempts fixes
         </p>
 
-        <label className={styles.toggle}>
-          <span className={styles.toggleLabel}>Auto-repair critical findings</span>
+        {/* Auto Repair */}
+        <div className={styles.toggleRow}>
+          <div className={styles.toggleInfo}>
+            <span className={styles.toggleLabel}>
+              Auto-repair critical findings
+            </span>
+            <span className={styles.toggleHint}>
+              Automatically generates fixes for critical and warning-level
+              issues
+            </span>
+          </div>
           <button
             className={`${styles.toggleSwitch} ${
               settings.auto_repair ? styles.toggleSwitchActive : ""
             }`}
             onClick={() =>
-              setSettings({ ...settings, auto_repair: !settings.auto_repair })
+              setSettings({
+                ...settings,
+                auto_repair: !settings.auto_repair,
+              })
             }
           >
             <div
@@ -132,10 +206,16 @@ export function SettingsPanel() {
               }`}
             />
           </button>
-        </label>
+        </div>
 
+        {/* Max Attempts */}
         <div className={styles.numberRow}>
-          <span className={styles.numberLabel}>Max repair attempts per finding</span>
+          <div className={styles.numberInfo}>
+            <span className={styles.numberLabel}>Max repair attempts</span>
+            <span className={styles.numberHint}>
+              How many times the agent retries before giving up (1–5)
+            </span>
+          </div>
           <input
             type="number"
             min="1"
@@ -152,15 +232,105 @@ export function SettingsPanel() {
         </div>
       </div>
 
-      <button
-        className={styles.saveBtn}
-        onClick={handleSave}
-        disabled={saving}
-      >
-        {saving ? "Saving..." : "Save Changes"}
-      </button>
+      {/* ═══════════════════════════════════════════
+          SECTION 3: Fix Delivery
+          ═══════════════════════════════════════════ */}
+      <div className={styles.section}>
+        <div className={styles.sectionHeader}>
+          <div
+            className={`${styles.sectionIcon} ${styles.sectionIconDelivery}`}
+          >
+            📦
+          </div>
+          <h3 className={styles.sectionTitle}>Fix Delivery</h3>
+        </div>
+        <p className={styles.sectionDesc}>
+          How should verified fixes be delivered to your codebase?
+        </p>
 
-      {feedback && <div className={styles.feedback}>{feedback}</div>}
+        <div className={styles.radioGroup}>
+          {[
+            {
+              id: "ask",
+              label: "Ask every time",
+              hint: "Show apply/comment/branch buttons in the dashboard",
+            },
+            {
+              id: "local",
+              label: "Always apply locally",
+              hint: "Applies the patch directly to your working tree via git apply",
+            },
+            {
+              id: "pr_comment",
+              label: "Post as PR comment",
+              hint: "Posts the fix as a suggestion comment on the pull request",
+            },
+            {
+              id: "branch",
+              label: "Commit to new branch",
+              hint: "Creates a pulse/fix-* branch with the fix committed",
+            },
+          ].map((option) => (
+            <label
+              key={option.id}
+              className={`${styles.radioOption} ${
+                settings.fix_delivery === option.id
+                  ? styles.radioOptionSelected
+                  : ""
+              }`}
+            >
+              <input
+                type="radio"
+                name="fix_delivery"
+                value={option.id}
+                checked={settings.fix_delivery === option.id}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    fix_delivery: e.target.value as Settings["fix_delivery"],
+                  })
+                }
+                className={styles.radioInput}
+              />
+              <div className={styles.radioInfo}>
+                <span
+                  className={`${styles.radioLabel} ${
+                    settings.fix_delivery === option.id
+                      ? styles.radioLabelSelected
+                      : ""
+                  }`}
+                >
+                  {option.label}
+                </span>
+                <span className={styles.radioHint}>{option.hint}</span>
+              </div>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* ─── Save Footer ─── */}
+      <div className={styles.footer}>
+        <button
+          className={styles.saveBtn}
+          onClick={handleSave}
+          disabled={saving}
+        >
+          {saving ? "Saving..." : "Save Changes"}
+        </button>
+
+        {feedback && (
+          <div
+            className={`${styles.feedback} ${
+              feedback.type === "success"
+                ? styles.feedbackSuccess
+                : styles.feedbackError
+            }`}
+          >
+            {feedback.type === "success" ? "✓" : "✕"} {feedback.message}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
