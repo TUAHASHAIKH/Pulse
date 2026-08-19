@@ -37,7 +37,7 @@ FIX_SIMILARITY_THRESHOLD = 0.50  # 50% word overlap in suggested_fix
 
 HIGH_FIX_SIMILARITY_THRESHOLD = 0.80  # 80% fix overlap → bypass line proximity check
 
-CODE_IDENT_SIMILARITY_THRESHOLD = 0.40  # 40% code-identifier overlap → bypass line check
+CODE_IDENT_SIMILARITY_THRESHOLD = 0.50  # 50% code-identifier overlap → bypass line check
 
 # Which agent "owns" which finding categories
 DOMAIN_OWNERSHIP = {
@@ -410,8 +410,11 @@ def deduplicate_findings(results: list[AgentResult]) -> list[AgentResult]:
                         changed = True
                         break
 
-                    elif abs(f_a.line - f_b.line) <= 15:
-                        # Stage 3: Context-Overlap Merging
+                    elif (
+                        abs(f_a.line - f_b.line) <= 15
+                        and f_a.category.lower().strip() == f_b.category.lower().strip()
+                    ):
+                        # Stage 3: Context-Overlap Merging (same category only)
                         merged_f = _merge_findings(f_a, f_b)
                         if fi != -1: to_remove.add((ai, fi))
                         if fj != -1: to_remove.add((aj, fj))

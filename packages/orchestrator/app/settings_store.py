@@ -30,6 +30,11 @@ DEFAULTS = {
     "repair_max_attempts": 3,     # max repair attempts per finding
     "auto_review_push": False,    # auto-review code before every git push
     "block_push": True,           # ask "Continue pushing? Y/n" after review
+    "min_confidence_threshold": 0.6,
+    "repair_min_confidence": 0.6,
+    "context_window_lines": 40,
+    "max_findings_per_agent": 5,
+    "strict_evidence_validation": True,
 }
 
 

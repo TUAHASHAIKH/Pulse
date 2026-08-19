@@ -11,6 +11,10 @@ interface Settings {
   repair_max_attempts: number;
   auto_review_push: boolean;
   block_push: boolean;
+  min_confidence_threshold: number;
+  repair_min_confidence: number;
+  max_findings_per_agent: number;
+  strict_evidence_validation: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -19,6 +23,10 @@ const DEFAULTS: Settings = {
   repair_max_attempts: 3,
   auto_review_push: false,
   block_push: true,
+  min_confidence_threshold: 0.6,
+  repair_min_confidence: 0.7,
+  max_findings_per_agent: 5,
+  strict_evidence_validation: true,
 };
 
 export function SettingsPanel() {
@@ -306,6 +314,109 @@ export function SettingsPanel() {
               </div>
             </label>
           ))}
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════
+          SECTION 4: Review Quality
+          ═══════════════════════════════════════════ */}
+      <div className={styles.section}>
+        <div className={styles.sectionHeader}>
+          <div className={`${styles.sectionIcon} ${styles.sectionIconDelivery}`}>
+            🎯
+          </div>
+          <h3 className={styles.sectionTitle}>Review Quality</h3>
+        </div>
+        <p className={styles.sectionDesc}>
+          Thresholds that filter low-confidence findings and limit noise
+        </p>
+
+        <div className={styles.numberRow}>
+          <div className={styles.numberInfo}>
+            <span className={styles.numberLabel}>Min finding confidence</span>
+            <span className={styles.numberHint}>Findings below this are dropped (0.0–1.0)</span>
+          </div>
+          <input
+            type="number"
+            min="0"
+            max="1"
+            step="0.05"
+            value={settings.min_confidence_threshold}
+            onChange={(e) =>
+              setSettings({
+                ...settings,
+                min_confidence_threshold: parseFloat(e.target.value) || 0.6,
+              })
+            }
+            className={styles.numberInput}
+          />
+        </div>
+
+        <div className={styles.numberRow}>
+          <div className={styles.numberInfo}>
+            <span className={styles.numberLabel}>Min repair confidence</span>
+            <span className={styles.numberHint}>Only repair findings above this level</span>
+          </div>
+          <input
+            type="number"
+            min="0"
+            max="1"
+            step="0.05"
+            value={settings.repair_min_confidence}
+            onChange={(e) =>
+              setSettings({
+                ...settings,
+                repair_min_confidence: parseFloat(e.target.value) || 0.7,
+              })
+            }
+            className={styles.numberInput}
+          />
+        </div>
+
+        <div className={styles.numberRow}>
+          <div className={styles.numberInfo}>
+            <span className={styles.numberLabel}>Max findings per agent</span>
+            <span className={styles.numberHint}>Caps findings to reduce noise (1–10)</span>
+          </div>
+          <input
+            type="number"
+            min="1"
+            max="10"
+            value={settings.max_findings_per_agent}
+            onChange={(e) =>
+              setSettings({
+                ...settings,
+                max_findings_per_agent: parseInt(e.target.value) || 5,
+              })
+            }
+            className={styles.numberInput}
+          />
+        </div>
+
+        <div className={styles.toggleRow}>
+          <div className={styles.toggleInfo}>
+            <span className={styles.toggleLabel}>Strict evidence validation</span>
+            <span className={styles.toggleHint}>
+              Reject findings whose evidence cannot be found in the diff
+            </span>
+          </div>
+          <button
+            className={`${styles.toggleSwitch} ${
+              settings.strict_evidence_validation ? styles.toggleSwitchActive : ""
+            }`}
+            onClick={() =>
+              setSettings({
+                ...settings,
+                strict_evidence_validation: !settings.strict_evidence_validation,
+              })
+            }
+          >
+            <div
+              className={`${styles.toggleDot} ${
+                settings.strict_evidence_validation ? styles.toggleDotActive : ""
+              }`}
+            />
+          </button>
         </div>
       </div>
 

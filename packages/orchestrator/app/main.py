@@ -203,19 +203,22 @@ async def api_review(request: ReviewAPIRequest):
       - CLI integration (pulse review)
       - Reviewing local changes before pushing
     """
+    project_root = request.project_root or get_project_root()
+
     # Build a trigger-agnostic ReviewRequest
     if request.diff:
         review_request = ReviewRequest(
             diff=request.diff,
             source=ReviewSource.MANUAL,
+            project_root=project_root,
         )
     elif request.repo and request.pr_number:
-        # We'll fetch the diff inside the runner
         review_request = ReviewRequest(
-            diff="",  # Will be fetched from GitHub
+            diff="",
             repo=request.repo,
             pr_number=request.pr_number,
             source=ReviewSource.GITHUB_PR,
+            project_root=project_root,
         )
     else:
         # No diff or PR provided -> Automatically grab the local git diff!
@@ -228,6 +231,7 @@ async def api_review(request: ReviewAPIRequest):
         review_request = ReviewRequest(
             diff=local_diff,
             source=ReviewSource.MANUAL,
+            project_root=project_root,
         )
 
     return await run_review(review_request)
@@ -484,6 +488,42 @@ async def update_settings(settings_data: dict):
     current.update(settings_data)
     success = settings_store.save_settings(current)
     return {"success": success, "settings": current}
+
+
+@app.post("/api/feedback/false-positive", tags=["Feedback"])
+async def report_false_positive(payload: dict):
+    """
+    Record a finding the user marked as a false positive.
+    Stored locally in .pulse/agent_feedback.json for threshold tuning.
+    """
+    from datetime import datetime, timezone
+    import json
+
+    feedback_path = settings_store._get_settings_path().parent / "agent_feedback.json"
+    entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "review_id": payload.get("review_id"),
+        "agent_name": payload.get("agent_name"),
+        "file": payload.get("file"),
+        "line": payload.get("line"),
+        "title": payload.get("title"),
+        "category": payload.get("category"),
+    }
+
+    records: list = []
+    if feedback_path.exists():
+        try:
+            records = json.loads(feedback_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            records = []
+
+    records.append(entry)
+    try:
+        feedback_path.parent.mkdir(parents=True, exist_ok=True)
+        feedback_path.write_text(json.dumps(records, indent=2), encoding="utf-8")
+        return {"success": True, "message": "False positive recorded"}
+    except OSError as e:
+        return {"success": False, "message": str(e)}
 
 
 # ─── Mount Socket.io ───

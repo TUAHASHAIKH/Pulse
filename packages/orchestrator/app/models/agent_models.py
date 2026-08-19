@@ -100,6 +100,10 @@ class ReviewRequest(BaseModel):
     timestamp: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
+    project_root: Optional[str] = Field(
+        default=None,
+        description="Absolute path to the project root for file context and patch validation",
+    )
 
 
 # ─── Agent Output ───
@@ -157,6 +161,10 @@ class Finding(BaseModel):
         le=1.0,
         description="How confident the agent is (0.0 to 1.0)"
     )
+    evidence: str = Field(
+        default="",
+        description="Exact code snippet from the diff that supports this finding"
+    )
 
 
 class AgentResult(BaseModel):
@@ -211,6 +219,7 @@ class RepairStatus(str, Enum):
     PENDING = "pending"
     RUNNING = "running"
     SUCCEEDED = "succeeded"
+    UNVERIFIED = "unverified"
     FAILED = "failed"
 
 
@@ -306,6 +315,10 @@ class ReviewAPIRequest(BaseModel):
     pr_number: Optional[int] = Field(
         default=None,
         description="GitHub PR number to fetch and review"
+    )
+    project_root: Optional[str] = Field(
+        default=None,
+        description="Project root path for enriched context (defaults to auto-detect)",
     )
 
 

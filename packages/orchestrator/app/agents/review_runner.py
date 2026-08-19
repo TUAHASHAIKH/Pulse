@@ -30,8 +30,10 @@ from app.models.agent_models import (
     AgentResult,
     ReviewAPIResponse,
 )
+from app.config import get_project_root
 from app.graph.builder import review_graph
 from app.agents.formatter import format_as_github_comment
+from app.agents import fix_applicator
 from app.integrations.github_client import github_client
 from app.ws.socket_server import emit_event
 from app.utils.logger import setup_logger
@@ -111,15 +113,36 @@ async def run_review(request: ReviewRequest) -> ReviewAPIResponse:
     # ── Step 2: Run all agents (+ repair) via LangGraph ──
     logger.info(f"Review {review_id}: launching LangGraph multi-agent orchestration...")
     
+    project_root = request.project_root or get_project_root()
+
     final_state = await review_graph.ainvoke({
         "diff": diff,
         "changed_files": changed_files,
+        "project_root": project_root or "",
         "results": [],
         "repair_results": [],
     })
     
     results = final_state.get("results", [])
     repair_results = final_state.get("repair_results", [])
+
+    # ── Step 2b: Auto-deliver fixes per fix_delivery setting ──
+    fix_deliveries = await fix_applicator.auto_deliver_repairs(
+        repair_results=repair_results,
+        review_id=review_id,
+        project_root=project_root or "",
+        repo=request.repo,
+        pr_number=request.pr_number,
+    )
+    for delivery in fix_deliveries:
+        await emit_event("fix_delivered", {
+            "review_id": review_id,
+            "method": delivery.method,
+            "success": delivery.success,
+            "message": delivery.message,
+            "files_changed": delivery.files_changed,
+            "branch_name": delivery.branch_name,
+        })
 
     # ── Step 3: Post PR comment (only for GitHub PRs) ──
     posted_comment = False

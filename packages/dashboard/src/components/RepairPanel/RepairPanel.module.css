@@ -73,6 +73,12 @@
   border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
+.badgeWarning {
+  background: rgba(234, 179, 8, 0.15);
+  color: #eab308;
+  border: 1px solid rgba(234, 179, 8, 0.35);
+}
+
 .badgeFailed {
   background: rgba(239, 68, 68, 0.15);
   color: #ef4444;

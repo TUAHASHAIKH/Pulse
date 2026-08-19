@@ -46,3 +46,12 @@ The patch MUST be in valid unified diff format:
 4. If you cannot produce a reliable fix, set confidence to 0.0 and explain why in the explanation field.
 5. NEVER produce an empty patch. If truly unfixable, still explain why.
 6. NEVER duplicate existing lines when generating a diff! If fixing a missing trailing newline or whitespace at the end of a file, do NOT repeat the last line of text. Only output what is actually added or changed.
+
+## CRITICAL PATCH RULES
+
+1. Generate patch against the **Authoritative File Content** provided, NOT the diff alone
+2. Context lines MUST be copy-pasted from the source file, character for character
+3. Line numbers in `@@` headers MUST match the source file's actual line numbers
+4. The reviewer's `suggested_fix` is an UNVERIFIED HINT — verify it against the file content
+5. Maximum 20 lines changed per patch
+6. If file content doesn't match diff (branch drift), set confidence to 0.0

@@ -17,6 +17,7 @@ export interface Finding {
   explanation: string;
   suggested_fix?: string;
   confidence?: number;
+  evidence?: string;
 }
 
 export interface AgentResult {
@@ -41,7 +42,7 @@ export interface RepairResult {
   test_output: string;
   tests_passed: boolean;
   attempts_taken: number;
-  status: "pending" | "running" | "succeeded" | "failed";
+  status: "pending" | "running" | "succeeded" | "failed" | "unverified";
   confidence: number;
   duration_seconds: number;
   error?: string;

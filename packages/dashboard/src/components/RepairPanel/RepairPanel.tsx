@@ -89,22 +89,33 @@ function RepairCard({
   );
 
   const succeeded = repair.status === "succeeded";
+  const unverified = repair.status === "unverified";
   const failed = repair.status === "failed";
+  // Show delivery buttons whenever we have a patch (including unverified).
+  // Previously docker-unavailable repairs were marked succeeded; unverified
+  // should behave the same for manual fix delivery.
+  const canApply = Boolean(repair.patch?.trim()) && !failed;
 
   return (
     <div className={styles.repairCard}>
       {/* Header */}
       <div className={styles.cardHeader}>
         <span className={styles.statusIcon}>
-          {succeeded ? "✅" : failed ? "❌" : "⏳"}
+          {succeeded ? "✅" : unverified ? "⚠️" : failed ? "❌" : "⏳"}
         </span>
         <span className={styles.cardTitle}>{repair.finding_title}</span>
         <span
           className={`${styles.badge} ${
-            succeeded ? styles.badgeSuccess : styles.badgeFailed
+            succeeded ? styles.badgeSuccess : unverified ? styles.badgeWarning : styles.badgeFailed
           }`}
         >
-          {succeeded ? "Fix Verified" : failed ? "Unfixable" : repair.status}
+          {succeeded
+            ? "Fix Verified"
+            : unverified
+              ? "Unverified"
+              : failed
+                ? "Unfixable"
+                : repair.status}
         </span>
       </div>
 
@@ -156,8 +167,8 @@ function RepairCard({
         </>
       )}
 
-      {/* Action Buttons (only for succeeded repairs) */}
-      {succeeded && (
+      {/* Action Buttons — available for any repair with a patch */}
+      {canApply && (
         <div className={styles.actions}>
           <button
             className={`${styles.actionBtn} ${styles.btnLocal}`}

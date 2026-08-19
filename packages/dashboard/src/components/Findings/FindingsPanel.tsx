@@ -7,8 +7,45 @@ import { SeverityBadge } from "../shared/SeverityBadge";
 import type { Finding } from "../../lib/socket";
 import styles from "./FindingsPanel.module.css";
 
-function FindingCard({ finding, index }: { finding: Finding; index: number }) {
+function FindingCard({
+  finding,
+  index,
+  reviewId,
+  agentName,
+}: {
+  finding: Finding;
+  index: number;
+  reviewId?: string;
+  agentName?: string;
+}) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const reportFalsePositive = async () => {
+    setSubmitting(true);
+    setFeedback(null);
+    try {
+      const res = await fetch("http://localhost:8000/api/feedback/false-positive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          review_id: reviewId,
+          agent_name: agentName,
+          file: finding.file,
+          line: finding.line,
+          title: finding.title,
+          category: finding.category,
+        }),
+      });
+      const data = await res.json();
+      setFeedback(data.success ? "Marked as false positive" : data.message);
+    } catch (err) {
+      setFeedback(`Failed: ${err}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <motion.div
@@ -49,6 +86,15 @@ function FindingCard({ finding, index }: { finding: Finding; index: number }) {
 
             <p className={styles.explanation}>{finding.explanation}</p>
 
+            {finding.evidence && (
+              <div className={styles.fixBlock}>
+                <span className={styles.fixLabel}>EVIDENCE</span>
+                <pre className={styles.fixCode}>
+                  <code>{finding.evidence}</code>
+                </pre>
+              </div>
+            )}
+
             {finding.suggested_fix && (
               <div className={styles.fixBlock}>
                 <span className={styles.fixLabel}>SUGGESTED FIX</span>
@@ -72,6 +118,16 @@ function FindingCard({ finding, index }: { finding: Finding; index: number }) {
                 </span>
               </div>
             )}
+
+            <button
+              type="button"
+              className={styles.falsePositiveBtn}
+              onClick={reportFalsePositive}
+              disabled={submitting}
+            >
+              {submitting ? "Saving..." : "Mark as false positive"}
+            </button>
+            {feedback && <p className={styles.feedbackText}>{feedback}</p>}
           </motion.div>
         )}
       </AnimatePresence>
@@ -79,7 +135,15 @@ function FindingCard({ finding, index }: { finding: Finding; index: number }) {
   );
 }
 
-export function FindingsPanel({ findings }: { findings: Finding[] }) {
+export function FindingsPanel({
+  findings,
+  reviewId,
+  agentName,
+}: {
+  findings: Finding[];
+  reviewId?: string;
+  agentName?: string;
+}) {
   if (findings.length === 0) {
     return (
       <div className={styles.container}>
@@ -103,7 +167,13 @@ export function FindingsPanel({ findings }: { findings: Finding[] }) {
       </div>
       <div className={styles.list}>
         {findings.map((finding, i) => (
-          <FindingCard key={`${finding.file}-${finding.line}-${i}`} finding={finding} index={i} />
+          <FindingCard
+            key={`${finding.file}-${finding.line}-${i}`}
+            finding={finding}
+            index={i}
+            reviewId={reviewId}
+            agentName={agentName}
+          />
         ))}
       </div>
     </div>

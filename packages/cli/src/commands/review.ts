@@ -194,6 +194,7 @@ export async function reviewCommand(options: {
   // ── Diff / PR Mode (existing behavior) ──
 
   // 2. Build the review payload
+  const projectRoot = process.cwd();
   let body: Record<string, string | number>;
 
   if (options.pr) {
@@ -207,7 +208,7 @@ export async function reviewCommand(options: {
     }
 
     const [, repo, prNumber] = match;
-    body = { repo, pr_number: parseInt(prNumber, 10) };
+    body = { repo, pr_number: parseInt(prNumber, 10), project_root: projectRoot };
     printInfo(`Reviewing PR #${prNumber} on ${repo}`);
   } else {
     // Get diff from git
@@ -234,7 +235,7 @@ export async function reviewCommand(options: {
         process.exit(1);
       }
 
-      body = { diff };
+      body = { diff, project_root: projectRoot };
       const lineCount = diff.split("\n").length;
       diffSpinner.succeed(`Got diff (${lineCount} lines)`);
     } catch {
@@ -432,7 +433,7 @@ async function handlePushReview(
     const res = await fetch(`${baseUrl}/api/review`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ diff }),
+      body: JSON.stringify({ diff, project_root: projectRoot }),
     });
 
     const data = await res.json() as {

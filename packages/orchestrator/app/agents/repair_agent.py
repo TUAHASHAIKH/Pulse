@@ -1,35 +1,16 @@
 """
 Pulse Orchestrator — Repair Agent
-
-The Repair Agent receives critical findings from reviewer agents and
-generates fix patches using the LLM. It does NOT apply fixes itself —
-that's the job of the repair_runner (Docker sandbox) and fix_applicator.
-
-Flow:
-  1. Receive a Finding + original diff context
-  2. Load the repair system prompt from docs/agent-prompts/
-  3. Build a message with the finding details + any previous failed attempts
-  4. Ask the LLM to produce a unified diff patch
-  5. Parse and validate the patch
-  6. Return a structured result
-
-Design decision: The Repair Agent is stateless and focused.
-It generates ONE patch per call. The retry loop (with test feedback)
-lives in repair_runner.py.
 """
 
+from __future__ import annotations
+
 import time
-from pathlib import Path
 from typing import Optional
 
+from app.context.context_builder import read_full_file
+from app.context.diff_parser import ParsedDiff, format_hunks_for_file, parse_diff
 from app.integrations.llm_client import llm_client
-from app.models.agent_models import (
-    Finding,
-    RepairResult,
-    RepairStatus,
-    TokenUsage,
-)
-from app.ws.socket_server import emit_event
+from app.models.agent_models import Finding, TokenUsage
 from app.utils.logger import setup_logger
 from app.utils.prompts import get_prompt_path
 
@@ -39,60 +20,66 @@ AGENT_NAME = "repair"
 
 
 def _load_system_prompt() -> str:
-    """Load the repair agent's system prompt from the versioned file."""
     prompt_path = get_prompt_path("repair")
     if not prompt_path.exists():
-        raise FileNotFoundError(
-            f"Repair agent prompt not found at {prompt_path}. "
-            f"Expected it in app/prompts/repair_agent.md or docs/agent-prompts/repair_agent.md"
-        )
-
-    with open(prompt_path, "r", encoding="utf-8") as f:
-        return f.read()
+        raise FileNotFoundError(f"Repair agent prompt not found at {prompt_path}")
+    return prompt_path.read_text(encoding="utf-8")
 
 
 def _build_user_message(
     finding: Finding,
     diff: str,
     previous_errors: Optional[list[str]] = None,
+    project_root: Optional[str] = None,
+    parsed_diff: Optional[ParsedDiff] = None,
 ) -> str:
-    """
-    Build the user message sent to the LLM.
+    parts: list[str] = []
 
-    Includes the finding details, original diff, and any error
-    feedback from previous failed repair attempts.
-    """
-    parts = []
-
-    # Finding details
     parts.append("## Finding to Fix")
     parts.append(f"**File:** `{finding.file}` (line {finding.line})")
     parts.append(f"**Severity:** {finding.severity.value}")
     parts.append(f"**Category:** {finding.category}")
     parts.append(f"**Title:** {finding.title}")
     parts.append(f"**Explanation:** {finding.explanation}")
+    if finding.evidence:
+        parts.append(f"**Evidence from diff:** `{finding.evidence}`")
     if finding.suggested_fix:
-        parts.append(f"**Agent's Suggestion:** {finding.suggested_fix}")
+        parts.append(f"**Agent's Suggestion (UNVERIFIED HINT):** {finding.suggested_fix}")
     parts.append("")
 
-    # Original diff context
-    parts.append("## Original Diff (containing the issue)")
-    parts.append("```diff")
-    parts.append(diff)
-    parts.append("```")
-    parts.append("")
+    full_file = read_full_file(project_root, finding.file) if project_root else None
+    if full_file:
+        parts.append("## Authoritative File Content (generate patch against THIS)")
+        parts.append(f"### `{finding.file}`")
+        parts.append("```")
+        parts.append(full_file)
+        parts.append("```")
+        parts.append("")
 
-    # Previous failed attempts (for retry loop feedback)
+    parsed = parsed_diff or parse_diff(diff)
+    hunk_text = format_hunks_for_file(parsed, finding.file)
+    if hunk_text:
+        parts.append("## Diff Hunk Containing Issue")
+        parts.append("```diff")
+        parts.append(hunk_text)
+        parts.append("```")
+        parts.append("")
+    else:
+        parts.append("## Original Diff (containing the issue)")
+        parts.append("```diff")
+        parts.append(diff[:12000])
+        parts.append("```")
+        parts.append("")
+
     if previous_errors:
         parts.append("## Previous Repair Attempts (FAILED)")
         parts.append(
-            "The following previous fix attempts failed testing. "
             "Learn from these errors and try a different approach:"
         )
         for i, error in enumerate(previous_errors, 1):
-            parts.append(f"\n### Attempt {i} — Test Failure")
+            parts.append(f"\n### Attempt {i}")
             parts.append("```")
-            parts.append(error[:2000])  # Cap error output length
+            parts.append(error[:2000])
             parts.append("```")
         parts.append("")
 
@@ -100,12 +87,6 @@ def _build_user_message(
 
 
 def _parse_repair_response(parsed_json: Optional[dict | list]) -> tuple[str, str, float, list[str]]:
-    """
-    Parse the LLM's JSON response into repair components.
-
-    Returns:
-        (patch, explanation, confidence, files_modified)
-    """
     if parsed_json is None:
         return "", "Failed to parse LLM response as JSON", 0.0, []
 
@@ -117,10 +98,8 @@ def _parse_repair_response(parsed_json: Optional[dict | list]) -> tuple[str, str
     confidence = parsed_json.get("confidence", 0.5)
     files_modified = parsed_json.get("files_modified", [])
 
-    # Validate confidence range
     try:
-        confidence = float(confidence)
-        confidence = max(0.0, min(1.0, confidence))
+        confidence = max(0.0, min(1.0, float(confidence)))
     except (TypeError, ValueError):
         confidence = 0.5
 
@@ -132,54 +111,37 @@ async def generate_fix(
     diff: str,
     previous_errors: Optional[list[str]] = None,
     model: Optional[str] = None,
+    project_root: Optional[str] = None,
 ) -> dict:
-    """
-    Generate a fix patch for a single critical finding.
-
-    Args:
-        finding: The Finding object to fix
-        diff: The original diff containing the issue
-        previous_errors: Error output from previous failed attempts
-        model: Optional LLM model override
-
-    Returns:
-        Dict with keys: patch, explanation, confidence, files_modified
-    """
     previous_errors = previous_errors or []
     start_time = time.time()
-
     attempt_num = len(previous_errors) + 1
+
     logger.info(
         f"Repair Agent generating fix for '{finding.title}' "
         f"(attempt {attempt_num}, file: {finding.file})"
     )
 
     try:
-        # Load prompt
         system_prompt = _load_system_prompt()
+        user_message = _build_user_message(
+            finding, diff, previous_errors, project_root
+        )
 
-        # Build message
-        user_message = _build_user_message(finding, diff, previous_errors)
-
-        # Call LLM
         response = await llm_client.call(
             system_prompt=system_prompt,
             user_message=user_message,
             model=model,
         )
 
-        # Parse response
         patch, explanation, confidence, files_modified = _parse_repair_response(
             response.parsed_json
         )
-
         duration = time.time() - start_time
 
         logger.info(
-            f"Repair Agent generated patch — "
-            f"confidence: {confidence:.2f}, "
-            f"{len(patch)} chars, "
-            f"{duration:.1f}s"
+            f"Repair Agent generated patch — confidence: {confidence:.2f}, "
+            f"{len(patch)} chars, {duration:.1f}s"
         )
 
         return {

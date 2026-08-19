@@ -73,43 +73,49 @@ def _clean_patch(patch: str) -> str:
     return result
 
 
-def _apply_patch_python_fallback(patch: str, project_root: str) -> tuple[bool, list[str], str]:
+def _parse_patch_hunks(patch: str) -> dict[str, list[tuple[list[str], list[str], list[str], list[str]]]]:
     """
-    Fallback patch applier implemented in Python.
-    If git apply fails (due to hunk offset mismatch, trailing whitespace, or formatting),
-    this parses the target file(s) and applies the removals/additions
-    by finding the matching blocks in the file.
+    Parse a unified diff into per-file hunks.
+
+    Returns:
+        {relative_path: [(old_lines, new_lines, removals, additions), ...]}
     """
     lines = patch.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     current_file = None
-    file_hunks = {}  # filename -> list of (old_lines, new_lines, removals, additions)
+    file_hunks: dict[str, list[tuple[list[str], list[str], list[str], list[str]]]] = {}
 
-    old_lines = []
-    new_lines = []
-    just_removals = []
-    just_additions = []
+    old_lines: list[str] = []
+    new_lines: list[str] = []
+    just_removals: list[str] = []
+    just_additions: list[str] = []
     in_hunk = False
+
+    def _flush_hunk() -> None:
+        nonlocal old_lines, new_lines, just_removals, just_additions, in_hunk
+        if current_file and in_hunk and (old_lines or new_lines):
+            file_hunks.setdefault(current_file, []).append(
+                (list(old_lines), list(new_lines), list(just_removals), list(just_additions))
+            )
+        old_lines = []
+        new_lines = []
+        just_removals = []
+        just_additions = []
+        in_hunk = False
 
     for line in lines:
         if line.startswith("+++ "):
+            _flush_hunk()
             path_str = line[4:].strip().split("\t")[0]
             if path_str.startswith("b/"):
                 path_str = path_str[2:]
             elif path_str.startswith("a/"):
                 path_str = path_str[2:]
             current_file = path_str
-            if current_file not in file_hunks:
-                file_hunks[current_file] = []
-            in_hunk = False
+            file_hunks.setdefault(current_file, [])
             continue
 
         if line.startswith("@@ "):
-            if current_file and in_hunk and (old_lines or new_lines):
-                file_hunks[current_file].append((list(old_lines), list(new_lines), list(just_removals), list(just_additions)))
-            old_lines = []
-            new_lines = []
-            just_removals = []
-            just_additions = []
+            _flush_hunk()
             in_hunk = True
             continue
 
@@ -127,9 +133,44 @@ def _apply_patch_python_fallback(patch: str, project_root: str) -> tuple[bool, l
                 old_lines.append(val)
                 new_lines.append(val)
 
-    if current_file and in_hunk and (old_lines or new_lines):
-        file_hunks[current_file].append((list(old_lines), list(new_lines), list(just_removals), list(just_additions)))
+    _flush_hunk()
+    return file_hunks
 
+
+def _apply_hunks_to_content(
+    content: str,
+    hunks: list[tuple[list[str], list[str], list[str], list[str]]],
+) -> tuple[bool, str, str]:
+    """Apply parsed hunks to in-memory file content. Returns (ok, new_content, error)."""
+    for old_lines_list, new_lines_list, removals_list, additions_list in hunks:
+        old_text = "\n".join(old_lines_list)
+        new_text = "\n".join(new_lines_list)
+
+        if old_text in content:
+            content = content.replace(old_text, new_text, 1)
+            continue
+
+        if removals_list:
+            removals_text = "\n".join(removals_list)
+            additions_text = "\n".join(additions_list)
+            if removals_text in content and content.count(removals_text) == 1:
+                content = content.replace(removals_text, additions_text, 1)
+            else:
+                return False, content, "Could not locate unique matching code block"
+        elif additions_list and not removals_list:
+            return False, content, "Context mismatch for additions-only hunk"
+
+    return True, content, ""
+
+
+def _apply_patch_python_fallback(patch: str, project_root: str, simulate: bool = False) -> tuple[bool, list[str], str]:
+    """
+    Fallback patch applier implemented in Python.
+    If git apply fails (due to hunk offset mismatch, trailing whitespace, or formatting),
+    this parses the target file(s) and applies the removals/additions
+    by finding the matching blocks in the file.
+    """
+    file_hunks = _parse_patch_hunks(patch)
     if not file_hunks:
         return False, [], "Could not parse filenames from patch"
 
@@ -152,30 +193,19 @@ def _apply_patch_python_fallback(patch: str, project_root: str) -> tuple[bool, l
             return False, files_changed, f"Could not read {abs_path}: {e}"
 
         original_content = content
-        for old_lines_list, new_lines_list, removals_list, additions_list in hunks:
-            old_text = "\n".join(old_lines_list)
-            new_text = "\n".join(new_lines_list)
-
-            if old_text in content:
-                content = content.replace(old_text, new_text, 1)
-            else:
-                # If exact block with context isn't found, try just the modified lines
-                if removals_list:
-                    removals_text = "\n".join(removals_list)
-                    additions_text = "\n".join(additions_list)
-                    if removals_text in content and content.count(removals_text) == 1:
-                        content = content.replace(removals_text, additions_text, 1)
-                    else:
-                        return False, files_changed, f"Could not locate unique matching code block in {abs_path.name}"
-                elif additions_list and not removals_list:
-                    return False, files_changed, f"Context mismatch for additions in {abs_path.name}"
+        ok, content, err = _apply_hunks_to_content(content, hunks)
+        if not ok:
+            return False, files_changed, f"{err} in {abs_path.name}"
 
         if content != original_content:
-            try:
-                abs_path.write_text(content, encoding="utf-8")
+            if not simulate:
+                try:
+                    abs_path.write_text(content, encoding="utf-8")
+                    files_changed.append(rel_file)
+                except Exception as e:
+                    return False, files_changed, f"Could not write {abs_path}: {e}"
+            else:
                 files_changed.append(rel_file)
-            except Exception as e:
-                return False, files_changed, f"Could not write {abs_path}: {e}"
 
     if not files_changed:
         return False, [], "No changes applied (content already up to date or patch empty)"
@@ -356,98 +386,111 @@ async def commit_to_branch(
     Commit the fix to a new branch on GitHub.
 
     Creates a branch named 'pulse/fix-{review_id}' from the PR's head,
-    then commits the patch. Uses GitHub's Git Data API (create blob →
-    create tree → create commit → create/update ref).
-
-    Args:
-        patch: Unified diff patch text
-        explanation: What the fix does
-        finding_title: Title of the finding being fixed
-        review_id: The review ID (for branch naming)
-        repo: GitHub repo full name
-        pr_number: PR number (to get the base SHA)
-
-    Returns:
-        FixApplicationResponse with the branch name
+    applies the patch via Git Data API (blob → tree → commit → ref).
     """
-    import httpx
-
     logger.info(f"Committing fix to new branch for {repo}#{pr_number}...")
 
     branch_name = f"pulse/fix-{review_id}"
+    cleaned_patch = _clean_patch(patch)
+    file_hunks = _parse_patch_hunks(cleaned_patch)
+
+    if not file_hunks:
+        return FixApplicationResponse(
+            success=False,
+            method="branch",
+            message="Could not parse patch — no file changes found.",
+        )
 
     try:
-        # Get the PR's head SHA
         client = github_client._get_client()
 
-        # Fetch PR details
         pr_response = await client.get(f"/repos/{repo}/pulls/{pr_number}")
         pr_response.raise_for_status()
-        pr_data = pr_response.json()
-        head_sha = pr_data["head"]["sha"]
+        head_sha = pr_response.json()["head"]["sha"]
 
-        # Create the branch ref
+        commit_response = await client.get(f"/repos/{repo}/git/commits/{head_sha}")
+        commit_response.raise_for_status()
+        base_tree_sha = commit_response.json()["tree"]["sha"]
+
         ref_response = await client.post(
             f"/repos/{repo}/git/refs",
-            json={
-                "ref": f"refs/heads/{branch_name}",
-                "sha": head_sha,
-            }
+            json={"ref": f"refs/heads/{branch_name}", "sha": head_sha},
         )
-
         if ref_response.status_code == 422:
-            # Branch already exists — update it
             ref_response = await client.patch(
                 f"/repos/{repo}/git/refs/heads/{branch_name}",
-                json={"sha": head_sha, "force": True}
+                json={"sha": head_sha, "force": True},
             )
-
         ref_response.raise_for_status()
 
-        # For now, we post the patch as a commit message on the branch.
-        # A full implementation would use the Git Data API to create
-        # blobs and trees, but that requires parsing the patch to extract
-        # individual file changes. This is a pragmatic first version.
+        tree_entries = []
+        for rel_path, hunks in file_hunks.items():
+            content_resp = await client.get(
+                f"/repos/{repo}/contents/{rel_path}",
+                params={"ref": head_sha},
+            )
+            if content_resp.status_code == 404:
+                current_content = ""
+            else:
+                content_resp.raise_for_status()
+                encoded = content_resp.json().get("content", "")
+                current_content = base64.b64decode(encoded).decode("utf-8", errors="replace")
 
-        # Post the patch info as a commit comment on the branch
-        commit_message = (
-            f"fix: [pulse] {finding_title}\n\n"
-            f"{explanation}\n\n"
-            f"Patch (apply manually):\n{patch[:3000]}"
-        )
+            ok, new_content, err = _apply_hunks_to_content(current_content, hunks)
+            if not ok:
+                return FixApplicationResponse(
+                    success=False,
+                    method="branch",
+                    message=f"Failed to apply patch to {rel_path}: {err}",
+                )
 
-        # Create a simple empty commit with the fix info
-        # (In a production version, we'd parse the patch and create proper blobs)
-        tree_response = await client.get(
-            f"/repos/{repo}/git/trees/{head_sha}"
+            blob_response = await client.post(
+                f"/repos/{repo}/git/blobs",
+                json={"content": new_content, "encoding": "utf-8"},
+            )
+            blob_response.raise_for_status()
+            blob_sha = blob_response.json()["sha"]
+            tree_entries.append({
+                "path": rel_path,
+                "mode": "100644",
+                "type": "blob",
+                "sha": blob_sha,
+            })
+
+        tree_response = await client.post(
+            f"/repos/{repo}/git/trees",
+            json={"base_tree": base_tree_sha, "tree": tree_entries},
         )
         tree_response.raise_for_status()
-        tree_sha = tree_response.json()["sha"]
+        new_tree_sha = tree_response.json()["sha"]
 
-        commit_response = await client.post(
+        commit_message = f"fix: [pulse] {finding_title}\n\n{explanation}"
+        new_commit_response = await client.post(
             f"/repos/{repo}/git/commits",
             json={
                 "message": commit_message,
-                "tree": tree_sha,
+                "tree": new_tree_sha,
                 "parents": [head_sha],
-            }
+            },
         )
-        commit_response.raise_for_status()
-        new_commit_sha = commit_response.json()["sha"]
+        new_commit_response.raise_for_status()
+        new_commit_sha = new_commit_response.json()["sha"]
 
-        # Update the branch to point to the new commit
         await client.patch(
             f"/repos/{repo}/git/refs/heads/{branch_name}",
-            json={"sha": new_commit_sha}
+            json={"sha": new_commit_sha},
         )
 
-        logger.info(f"Fix committed to branch {branch_name}")
+        logger.info(f"Fix committed to branch {branch_name} ({new_commit_sha[:7]})")
         return FixApplicationResponse(
             success=True,
             method="branch",
-            message=f"Fix committed to branch '{branch_name}'. "
-                    f"You can merge or cherry-pick from there.",
+            message=(
+                f"Fix committed to branch '{branch_name}' "
+                f"({len(tree_entries)} file(s) changed)."
+            ),
             branch_name=branch_name,
+            files_changed=list(file_hunks.keys()),
         )
 
     except Exception as e:
@@ -457,3 +500,73 @@ async def commit_to_branch(
             method="branch",
             message=f"Failed to commit to branch: {str(e)}",
         )
+
+
+async def auto_deliver_repairs(
+    repair_results: list,
+    review_id: str,
+    project_root: str,
+    repo: Optional[str] = None,
+    pr_number: Optional[int] = None,
+) -> list[FixApplicationResponse]:
+    """
+    Auto-deliver verified repairs based on fix_delivery setting.
+
+    Skips when fix_delivery is 'ask' (manual dashboard flow).
+    """
+    from app.models.agent_models import RepairStatus
+    from app.settings_store import get_setting
+
+    delivery_mode = get_setting("fix_delivery", "ask")
+    if delivery_mode == "ask":
+        return []
+
+    delivered: list[FixApplicationResponse] = []
+
+    for repair in repair_results:
+        eligible_statuses = {RepairStatus.SUCCEEDED}
+        if delivery_mode == "local":
+            eligible_statuses.add(RepairStatus.UNVERIFIED)
+
+        if repair.status not in eligible_statuses or not repair.patch:
+            continue
+
+        result: Optional[FixApplicationResponse] = None
+
+        if delivery_mode == "local":
+            if not project_root:
+                logger.warning("fix_delivery=local but no project_root — skipping")
+                continue
+            result = await apply_locally(repair.patch, project_root)
+        elif delivery_mode == "pr_comment":
+            if not repo or not pr_number:
+                logger.warning("fix_delivery=pr_comment but no repo/pr_number — skipping")
+                continue
+            result = await post_as_pr_comment(
+                patch=repair.patch,
+                explanation=repair.explanation,
+                finding_title=repair.finding_title,
+                repo=repo,
+                pr_number=pr_number,
+            )
+        elif delivery_mode == "branch":
+            if not repo or not pr_number:
+                logger.warning("fix_delivery=branch but no repo/pr_number — skipping")
+                continue
+            result = await commit_to_branch(
+                patch=repair.patch,
+                explanation=repair.explanation,
+                finding_title=repair.finding_title,
+                review_id=review_id,
+                repo=repo,
+                pr_number=pr_number,
+            )
+
+        if result:
+            delivered.append(result)
+            logger.info(
+                f"Auto-delivered fix for '{repair.finding_title}' "
+                f"via {delivery_mode}: success={result.success}"
+            )
+
+    return delivered

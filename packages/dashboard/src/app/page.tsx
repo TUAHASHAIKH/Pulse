@@ -107,7 +107,7 @@ export default function Dashboard() {
           )}
 
           {activeSection === "findings" && (
-            <FindingsPanel findings={latestFindings} />
+            <FindingsPanel findings={latestFindings} reviewId={currentReviewId} />
           )}
 
           {activeSection === "repairs" && (
