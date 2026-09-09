@@ -299,7 +299,7 @@ class LLMClient:
     ) -> LLMResponse:
         """Call Groq's API (using OpenAI's SDK interface)."""
         client = self._get_groq_client()
-        model = model or "llama-3.3-70b-versatile"
+        model = model or "llama-3.1-70b-versatile"
 
         start = time.time()
         logger.info(f"Calling Groq ({model})...")
