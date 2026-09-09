@@ -304,16 +304,37 @@ class LLMClient:
         start = time.time()
         logger.info(f"Calling Groq ({model})...")
 
-        response = await client.chat.completions.create(
-            model=model,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message},
-            ],
-        )
+        try:
+            response = await client.chat.completions.create(
+                model=model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message},
+                ],
+            )
+        except Exception as e:
+            if "model_not_found" in str(e) or "does not exist" in str(e):
+                fallback_model = "llama-3.1-8b-instant"
+                logger.warning(
+                    f"Groq rejected model '{model}' (likely due to free tier restrictions). "
+                    f"Falling back to '{fallback_model}'..."
+                )
+                model = fallback_model
+                response = await client.chat.completions.create(
+                    model=model,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    response_format={"type": "json_object"},
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message},
+                    ],
+                )
+            else:
+                raise
 
         duration = time.time() - start
         content = response.choices[0].message.content or ""
