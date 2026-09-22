@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pulse agent quality workflow</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #171a21;
+      --text: #e8eaed;
+      --muted: #9aa3b2;
+      --line: #2a3140;
+      --accent: #3d8bfd;
+      --ok: #3dba86;
+      --warn: #d4a017;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.5 ui-sans-serif, system-ui, Segoe UI, sans-serif;
+      padding: 40px 48px 64px;
+    }
+    h1 { font-size: 24px; font-weight: 650; margin: 0 0 8px; }
+    h2 { font-size: 18px; font-weight: 650; margin: 36px 0 10px; }
+    h3 { font-size: 15px; font-weight: 650; margin: 0 0 8px; }
+    p { color: var(--muted); margin: 0 0 12px; }
+    .lead { max-width: 760px; }
+    .callout {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 14px 16px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    .callout.warn { border-color: #5a4a20; }
+    .callout strong { display: block; color: var(--text); margin-bottom: 4px; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin: 20px 0 8px;
+    }
+    .stat {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .stat b { font-size: 22px; display: block; }
+    .stat span { color: var(--muted); font-size: 12px; }
+    .flow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      margin: 24px 0;
+    }
+    .node {
+      width: 220px;
+      text-align: center;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+    .node.accent { border-color: var(--accent); }
+    .arrow { color: var(--muted); height: 22px; line-height: 22px; font-size: 12px; }
+    .row {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      padding: 8px 10px;
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-weight: 550; }
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .pill {
+      display: inline-block;
+      font-size: 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 2px 8px;
+      margin: 4px 6px 0 0;
+      color: var(--muted);
+    }
+    .pill.ok { color: var(--ok); border-color: #245a44; }
+    .pill.warn { color: var(--warn); border-color: #5a4a20; }
+    .pill.info { color: var(--accent); border-color: #2a4a7a; }
+    code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+    @media print {
+      body { padding: 16px; background: white; color: #111; }
+      p, .stat span, th, .arrow, .pill { color: #444 !important; }
+      .node, .card, .stat, .callout { background: #f7f7f7; border-color: #ddd; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Pulse agent quality workflow</h1>
+  <p class="lead">
+    End-to-end review pipeline from the agent quality overhaul: richer context,
+    evidence checks, confidence gates, patch validation, and optional auto-delivery of fixes.
+  </p>
+
+  <div class="callout">
+    <strong>Problem this workflow solves</strong>
+    Agents were producing duplicate findings, hallucinated issues, broken patches,
+    and false positives because they saw only a raw diff. The pipeline now builds
+    file context first, then filters, then repairs only high-confidence issues.
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b>4</b><span>Implementation phases</span></div>
+    <div class="stat"><b>3</b><span>Reviewer agents in parallel</span></div>
+    <div class="stat"><b>0.7</b><span>Default repair confidence floor</span></div>
+    <div class="stat"><b>5</b><span>Max findings per agent</span></div>
+  </div>
+
+  <h2>Live review pipeline</h2>
+  <p>LangGraph graph in <code>packages/orchestrator/app/graph/builder.py</code>. Accent border marks validation/dedup and the repair gate.</p>
+
+  <div class="flow">
+    <div class="node">Trigger<br><span style="color:var(--muted);font-size:11px">CLI / dashboard / API + project_root</span></div>
+    <div class="arrow">↓</div>
+    <div class="node">Prepare context<br><span style="color:var(--muted);font-size:11px">hunks, full files, imports, tests</span></div>
+    <div class="arrow">↓</div>
+    <div class="node">Architect<br><span style="color:var(--muted);font-size:11px">docs-only skips agents</span></div>
+    <div class="arrow">↓</div>
+    <div class="row">
+      <div class="node">Security</div>
+      <div class="node">Performance</div>
+      <div class="node">Code quality</div>
+    </div>
+    <div class="arrow">↓</div>
+    <div class="node accent">Validate + dedup</div>
+    <div class="arrow">↓</div>
+    <div class="node accent">Repair gate</div>
+    <div class="arrow">↓</div>
+    <div class="node">Repair agent</div>
+    <div class="arrow">↓</div>
+    <div class="node">Fix delivery</div>
+    <div class="arrow">↓</div>
+    <div class="node">Dashboard</div>
+  </div>
+
+  <h2>What each stage does</h2>
+  <table>
+    <thead>
+      <tr><th>Stage</th><th>Quality control</th><th>Key files</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Trigger</td><td>CLI, dashboard, or API sends the diff plus project_root</td><td>review.ts · main.py · review_runner.py</td></tr>
+      <tr><td>Prepare context</td><td>Parse hunks, read full files, imports, siblings, tests</td><td>diff_parser.py · context_builder.py</td></tr>
+      <tr><td>Architect</td><td>Rules-based routing; skip docs-only diffs</td><td>architect_agent.py</td></tr>
+      <tr><td>Reviewer agents</td><td>Anti-hallucination prompts, evidence snippets, confidence scores</td><td>base_reviewer.py · security/performance/quality agents</td></tr>
+      <tr><td>Validate + dedup</td><td>Drop findings without evidence, wrong file/line, or weak confidence; merge same-category duplicates</td><td>finding_validator.py · finding_filters.py · dedup.py</td></tr>
+      <tr><td>Repair gate</td><td>Only critical/warning findings at confidence ≥ 0.7</td><td>builder.py repair_gate</td></tr>
+      <tr><td>Repair</td><td>Patch against full file; git apply --check; UNVERIFIED if Docker is down</td><td>repair_agent.py · patch_validator.py · repair_runner.py</td></tr>
+      <tr><td>Fix delivery</td><td>ask (manual) · local · PR comment · GitHub branch with real blobs</td><td>fix_applicator.py · SettingsPanel</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Quality gates in order</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>Finding quality</h3>
+      <p>Each finding must include an <code>evidence</code> snippet that actually appears in the diff. Strict validation also checks file membership, line mapping, and domain category slugs.</p>
+      <p>Post-parse filters drop low-confidence items and cap each agent at 5 findings.</p>
+      <span class="pill ok">Evidence required</span>
+      <span class="pill warn">Confidence floor</span>
+      <span class="pill">Max 5 / agent</span>
+    </div>
+    <div class="card">
+      <h3>Repair quality</h3>
+      <p>The repair agent receives the authoritative file, not just the hunk. Suggested reviewer fixes are labeled as unverified hints.</p>
+      <p>Patches are checked with git apply before Docker tests. If Docker is unavailable the status is UNVERIFIED, not succeeded.</p>
+      <span class="pill info">Full-file patch</span>
+      <span class="pill warn">git apply --check</span>
+      <span class="pill warn">UNVERIFIED without Docker</span>
+    </div>
+  </div>
+
+  <h2>Implemented in four phases</h2>
+  <div class="grid2">
+    <div class="card"><h3>Phase 1 — Signal quality <span class="pill ok">Done</span></h3><p>Evidence field, UNVERIFIED repair status, quality settings, stricter prompts, confidence gate, same-category dedup, repair only for critical/warning ≥ 0.7.</p></div>
+    <div class="card"><h3>Phase 2 — Context <span class="pill ok">Done</span></h3><p>Structured diff parser, context builder, finding validator, shared base reviewer, architect skip for docs, graph state with project_root / file_context / parsed_hunks.</p></div>
+    <div class="card"><h3>Phase 3 — Patches <span class="pill ok">Done</span></h3><p>Patch validator, repair against full file, hunk-only original diff, repair_max_attempts from settings, Docker-unavailable marked UNVERIFIED.</p></div>
+    <div class="card"><h3>Phase 4 — Feedback loop <span class="pill ok">Done</span></h3><p>Unit tests, false-positive button, evidence in Findings panel, quality thresholds in Settings, CLI sends project_root, auto-deliver via fix_delivery, real GitHub branch commits.</p></div>
+  </div>
+
+  <h2>Repair and delivery path</h2>
+  <p>After a patch is produced, delivery is separate from generation. Default is still Ask so the dashboard buttons apply the fix.</p>
+  <table>
+    <thead><tr><th>fix_delivery</th><th>When it runs</th><th>What happens</th></tr></thead>
+    <tbody>
+      <tr><td>ask</td><td>Manual</td><td>Apply Locally / PR Comment / Commit to Branch on the repair card</td></tr>
+      <tr><td>local</td><td>Auto after repair</td><td>git apply (or Python fallback) on the project; no commit</td></tr>
+      <tr><td>pr_comment</td><td>Auto if repo + PR exist</td><td>Posts the patch as a GitHub PR comment</td></tr>
+      <tr><td>branch</td><td>Auto if repo + PR exist</td><td>Creates pulse/fix-{review_id} with blob → tree → commit</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Before vs after</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>Before</h3>
+      <p>Agents reviewed a raw diff with no file context.</p>
+      <p>Duplicates merged across unrelated categories.</p>
+      <p>First finding could force a repair attempt.</p>
+      <p>Missing Docker was reported as a successful repair.</p>
+      <p>Branch “commit” stored the patch in the message only.</p>
+    </div>
+    <div class="card">
+      <h3>After</h3>
+      <p>Hunks plus full file, imports, siblings, and tests.</p>
+      <p>Dedup only when category matches; evidence required.</p>
+      <p>Repair only for high-confidence critical/warning.</p>
+      <p>UNVERIFIED until Docker tests pass.</p>
+      <p>Git Data API writes real file blobs on the fix branch.</p>
+    </div>
+  </div>
+
+  <div class="callout warn">
+    <strong>Known gap outside this workflow</strong>
+    Local GitHub automation (hooks install, one-shot run-review, optional daemon)
+    was planned separately and is not part of this quality pipeline.
+  </div>
+</body>
+</html>

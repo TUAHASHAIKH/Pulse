@@ -52,7 +52,11 @@ DOMAIN_OWNERSHIP = {
     },
     "quality": {
         "code_quality", "dead-code", "complexity", "naming",
-        "code-duplication", "anti-pattern",
+        "code-duplication", "anti-pattern", "syntax-error", "syntax",
+    },
+    "code_quality": {
+        "code_quality", "dead-code", "complexity", "naming",
+        "code-duplication", "anti-pattern", "syntax-error", "syntax",
     },
 }
 

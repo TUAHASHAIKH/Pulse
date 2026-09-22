@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 from app.context.diff_parser import ParsedDiff, parse_diff
+from app.context.syntax_checker import check_syntax_for_file
 from app.settings_store import get_setting
 from app.utils.logger import setup_logger
 
@@ -110,6 +111,7 @@ def build_review_context(
     parts.append("Use this to avoid false claims about code that exists elsewhere.")
     parts.append("")
 
+    syntax_issues: list[str] = []
     for file_path in files[:10]:
         resolved = _resolve_file(root, file_path)
         if not resolved:
@@ -118,6 +120,14 @@ def build_review_context(
         content = _read_file_safe(resolved)
         if not content:
             continue
+
+        # Check for static syntax errors in changed files
+        for issue in check_syntax_for_file(content, file_path):
+            if parsed.line_in_diff(file_path, issue.line) or file_path in parsed.added_lines:
+                evidence_str = f" | Evidence: `{issue.evidence}`" if issue.evidence else ""
+                syntax_issues.append(
+                    f"- `{issue.file}` (line {issue.line}): **{issue.message}**{evidence_str}"
+                )
 
         imports = _extract_imports(content)
         if imports:
@@ -156,7 +166,18 @@ def build_review_context(
                     parts.append("")
                     total_chars += len(block)
 
-    if len(parts) <= 3:
+    if syntax_issues:
+        syntax_block = (
+            "## Static Syntax Analysis (Parser Diagnostics)\n"
+            "The following fatal syntax error(s) were detected by static parsers in modified files:\n"
+            + "\n".join(syntax_issues)
+            + "\n\nCRITICAL INSTRUCTION: If these errors originate from or break the diff's changed lines (+), "
+            "report them as `syntax-error` findings with `critical` severity and exact evidence."
+        )
+        parts.insert(0, syntax_block)
+        parts.insert(1, "")
+
+    if len(parts) <= 3 and not syntax_issues:
         return "", parsed, files
 
     return "\n".join(parts), parsed, files

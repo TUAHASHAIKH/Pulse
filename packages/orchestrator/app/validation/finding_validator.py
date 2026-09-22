@@ -24,7 +24,7 @@ AGENT_ALLOWED_CATEGORIES: dict[str, set[str]] = {
     },
     "code_quality": {
         "code_quality", "dead-code", "complexity", "naming",
-        "code-duplication", "anti-pattern",
+        "code-duplication", "anti-pattern", "syntax-error", "syntax",
     },
 }
 
